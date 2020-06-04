@@ -8,5 +8,5 @@ pub(crate) mod signature;
 pub(crate) mod time;
 pub(crate) mod traits;
 pub(crate) mod trusted;
-mod validator;
+pub(crate) mod validator;
 mod vote;

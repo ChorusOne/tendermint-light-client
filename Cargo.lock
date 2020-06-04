@@ -533,7 +533,6 @@ version = "0.1.0"
 dependencies = [
  "anomaly",
  "chrono",
- "clear_on_drop",
  "prost-amino",
  "prost-amino-derive",
  "ripemd160",
