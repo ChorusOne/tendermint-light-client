@@ -11,7 +11,7 @@ subtle-encoding = { version = "0.5.1", features = ["bech32-preview"] }
 serde = "1.0.111"
 anomaly = "0.2.0"
 chrono = { version = "0.4.11", features = ["serde"] }
-serde_derive = "1.0.111"
+serde_derive = "1.0"
 subtle = "2.2.3"
 thiserror = "1.0.19"
 signatory = { version = "0.19.0", features = ["ed25519", "ecdsa", "k256"] }
