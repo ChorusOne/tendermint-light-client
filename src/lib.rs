@@ -20,6 +20,8 @@ pub use types::trusted::TrustedState;
 // Validator data types
 pub use types::validator::Info as LightValidatorInfo;
 pub use types::validator::Set as LightValidatorSet;
+// Time data type.
+pub use types::time::Time;
 
 use crate::errors::Error;
 use std::time::{Duration, SystemTime};
@@ -60,6 +62,8 @@ pub fn verify_single_light(
         now,
     )
 }
+
+
 
 /// Traits inherited by some of the exposed types
 pub mod traits {
