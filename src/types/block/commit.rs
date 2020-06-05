@@ -5,11 +5,12 @@ use crate::types::block::height::Height;
 use crate::types::block::id::Id;
 use crate::types::block::traits::commit::ProvableCommit;
 use crate::types::block::traits::header::Header;
-use crate::types::hash;
 use crate::types::traits::validator_set::ValidatorSet as _;
 use crate::types::validator::Set;
 use crate::types::vote::vote;
+use crate::types::{account, hash};
 use anomaly::fail;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::ops::Deref;
@@ -198,17 +199,29 @@ impl ProvableCommit for LightSignedHeader {
         self.commit.block_id.hash
     }
     fn voting_power_in(&self, validators: &Set) -> Result<u64, Error> {
+        let mut seen_votes: HashSet<account::Id> = HashSet::new();
         // NOTE we don't know the validators that committed this block,
         // so we have to check for each vote if its validator is already known.
         let mut signed_power = 0u64;
         for vote in &self.signed_votes() {
             // Only count if this vote is from a known validator.
-            // TODO: we still need to check that we didn't see a vote from this validator twice ...
             let val_id = vote.validator_id();
+
             let val = match validators.validator(val_id) {
                 Some(v) => v,
                 None => continue,
             };
+
+            // Fail if we have seen vote from this validator before
+            if seen_votes.contains(&val_id) {
+                fail!(
+                    Kind::ImplementationSpecific,
+                    "Duplicate vote found by validator {:?}",
+                    val_id,
+                );
+            } else {
+                seen_votes.insert(val_id);
+            }
 
             // check vote is valid from validator
             let sign_bytes = vote.sign_bytes();
