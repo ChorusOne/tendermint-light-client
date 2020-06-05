@@ -10,3 +10,6 @@ pub(crate) mod traits;
 pub(crate) mod trusted;
 pub(crate) mod validator;
 mod vote;
+
+#[cfg(test)]
+pub mod mocks;
