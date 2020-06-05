@@ -26,9 +26,21 @@ use std::time::{Duration, SystemTime};
 
 // Generic Function to call to validate a header
 pub use verification::verify_single;
+// Generic function to validate a commit without checking
+// with trusted state. This is useful to initialize a client
+pub use verification::verify_commit_trusting;
 
-// Wrapper around generic verification function
+// Following are Wrapper around generic verification function
 // with concrete light types
+
+pub fn verify_light_commit_trusting(
+    validators: &LightValidatorSet,
+    commit: &LightSignedHeader,
+    trust_level: TrustThresholdFraction,
+) -> Result<(), Error> {
+    verify_commit_trusting(validators, commit, trust_level)
+}
+
 pub fn verify_single_light(
     trusted_state: TrustedState<LightSignedHeader, LightHeader>,
     untrusted_sh: &SignedHeader<LightSignedHeader, LightHeader>,

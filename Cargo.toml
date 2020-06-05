@@ -1,6 +1,6 @@
 [package]
 name = "tendermint_light_client"
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Parth Desai <desaiparth08@gmail.com>", "Joe Bowman <joe@chorus.one>"]
 edition = "2018"
 
