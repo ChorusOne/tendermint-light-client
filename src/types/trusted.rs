@@ -95,3 +95,48 @@ where
         &self.validators
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::types::traits::trusted::TrustThreshold;
+    use crate::TrustThresholdFraction;
+
+    #[test]
+    fn test_threshold_fraction() {
+        let possible_threshold_fraction = TrustThresholdFraction::new(1, 3);
+        assert!(possible_threshold_fraction.is_ok());
+
+        // 1/3+ need to sign
+        let mut threshold_fraction = possible_threshold_fraction.unwrap();
+        assert!(!threshold_fraction.is_enough_power(0, 3));
+        assert!(!threshold_fraction.is_enough_power(1, 3));
+        assert!(threshold_fraction.is_enough_power(2, 3));
+        assert!(threshold_fraction.is_enough_power(3, 3));
+
+        // 1/2+ need to sign
+        threshold_fraction.numerator = 1;
+        threshold_fraction.denominator = 2;
+        assert!(!threshold_fraction.is_enough_power(0, 4));
+        assert!(!threshold_fraction.is_enough_power(1, 4));
+        assert!(!threshold_fraction.is_enough_power(2, 4));
+        assert!(threshold_fraction.is_enough_power(3, 4));
+        assert!(threshold_fraction.is_enough_power(4, 4));
+
+        // 2/3+ need to sign
+        threshold_fraction.numerator = 2;
+        threshold_fraction.denominator = 3;
+        assert!(!threshold_fraction.is_enough_power(0, 3));
+        assert!(!threshold_fraction.is_enough_power(1, 3));
+        assert!(!threshold_fraction.is_enough_power(2, 3));
+        assert!(threshold_fraction.is_enough_power(3, 3));
+
+        // All+ need to sign
+        threshold_fraction.numerator = 3;
+        threshold_fraction.denominator = 3;
+        assert!(!threshold_fraction.is_enough_power(0, 3));
+        assert!(!threshold_fraction.is_enough_power(1, 3));
+        assert!(!threshold_fraction.is_enough_power(2, 3));
+        assert!(!threshold_fraction.is_enough_power(3, 3));
+        assert!(threshold_fraction.is_enough_power(4, 3));
+    }
+}
