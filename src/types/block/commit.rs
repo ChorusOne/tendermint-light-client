@@ -107,14 +107,7 @@ where
     }
 }
 
-/// Signed block headers
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-pub struct LightSignedHeader {
-    /// Block header
-    pub header: header::Header,
-    /// Commit containing signatures for the header
-    pub commit: Commit,
-}
+pub type LightSignedHeader = SignedHeader<Commit, header::Header>;
 
 impl LightSignedHeader {
     /// This is a private helper method to iterate over the underlying

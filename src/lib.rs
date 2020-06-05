@@ -32,38 +32,6 @@ pub use verification::verify_single;
 // with trusted state. This is useful to initialize a client
 pub use verification::verify_commit_full;
 
-// Following are Wrapper around generic verification function
-// with concrete light types
-
-pub fn verify_light_commit_full(
-    validators: &LightValidatorSet,
-    commit: &LightSignedHeader,
-) -> Result<(), Error> {
-    verify_commit_full(validators, commit)
-}
-
-pub fn verify_single_light(
-    trusted_state: TrustedState<LightSignedHeader, LightHeader>,
-    untrusted_sh: &SignedHeader<LightSignedHeader, LightHeader>,
-    untrusted_vals: &LightValidatorSet,
-    untrusted_next_vals: &LightValidatorSet,
-    trust_threshold: TrustThresholdFraction,
-    trusting_period: Duration,
-    now: SystemTime,
-) -> Result<TrustedState<LightSignedHeader, LightHeader>, Error> {
-    verify_single(
-        trusted_state,
-        untrusted_sh,
-        untrusted_vals,
-        untrusted_next_vals,
-        trust_threshold,
-        trusting_period,
-        now,
-    )
-}
-
-
-
 /// Traits inherited by some of the exposed types
 pub mod traits {
     // Validator set trait implemented by LightValidatorSet
