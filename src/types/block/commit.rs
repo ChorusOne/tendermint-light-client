@@ -107,15 +107,6 @@ where
     }
 }
 
-pub fn convert_to_signed_header(
-    light_signed_header: LightSignedHeader,
-) -> SignedHeader<LightSignedHeader, header::Header> {
-    SignedHeader::<LightSignedHeader, header::Header>::new(
-        light_signed_header.clone(),
-        light_signed_header.header,
-    )
-}
-
 /// Signed block headers
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 pub struct LightSignedHeader {
