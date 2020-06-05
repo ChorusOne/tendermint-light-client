@@ -1,3 +1,4 @@
+use crate::types::chain;
 use crate::types::hash::Hash;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -15,6 +16,7 @@ pub trait Header: Clone + Debug + Serialize + DeserializeOwned {
     /// We assume it can be converted to SystemTime.
     type Time: Into<SystemTime>;
 
+    fn chain_id(&self) -> chain::Id;
     fn height(&self) -> Height;
     fn bft_time(&self) -> Self::Time;
     fn validators_hash(&self) -> Hash;

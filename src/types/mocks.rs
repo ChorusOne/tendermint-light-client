@@ -5,9 +5,11 @@ use sha2::{Digest, Sha256};
 use crate::errors::{Error, Kind};
 use crate::types::block::traits::commit::ProvableCommit;
 use crate::types::block::traits::header::{Header, Height};
+use crate::types::chain;
 use crate::types::hash::{Algorithm, Hash};
 use crate::types::traits::validator_set::ValidatorSet;
 use crate::{SignedHeader, TrustedState};
+use std::str::FromStr;
 use std::time::SystemTime;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -36,6 +38,9 @@ impl MockHeader {
 impl Header for MockHeader {
     type Time = SystemTime;
 
+    fn chain_id(&self) -> chain::Id {
+        chain::Id::from_str("test").unwrap()
+    }
     fn height(&self) -> Height {
         self.height
     }
@@ -101,7 +106,11 @@ impl ProvableCommit for MockCommit {
     }
 
     // just the intersection
-    fn voting_power_in(&self, vals: &Self::ValidatorSet) -> Result<u64, Error> {
+    fn voting_power_in(
+        &self,
+        chain_id: chain::Id,
+        vals: &Self::ValidatorSet,
+    ) -> Result<u64, Error> {
         let mut power = 0;
         // if there's a signer thats not in the val set,
         // we can't detect it...

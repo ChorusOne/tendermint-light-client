@@ -1,4 +1,5 @@
 use crate::errors::Error;
+use crate::types::chain;
 use crate::types::hash::Hash;
 use crate::types::traits::validator_set::ValidatorSet;
 use serde::de::DeserializeOwned;
@@ -29,7 +30,8 @@ pub trait ProvableCommit: Clone + Debug + Serialize + DeserializeOwned {
     /// Note this expects the Commit to be able to compute `signers(h.Commit)`,
     /// ie. the identity of the validators that signed it, so they
     /// can be cross-referenced with the given `vals`.
-    fn voting_power_in(&self, vals: &Self::ValidatorSet) -> Result<u64, Error>;
+    fn voting_power_in(&self, chain_id: chain::Id, vals: &Self::ValidatorSet)
+        -> Result<u64, Error>;
 
     /// Implementers should add addition validation against the given validator set
     /// or other implementation specific validation here.

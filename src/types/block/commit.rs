@@ -8,7 +8,7 @@ use crate::types::block::traits::header::Header;
 use crate::types::traits::validator_set::ValidatorSet as _;
 use crate::types::validator::Set;
 use crate::types::vote::vote;
-use crate::types::{account, hash};
+use crate::types::{account, chain, hash};
 use anomaly::fail;
 use std::collections::HashSet;
 use std::convert::TryFrom;
@@ -82,6 +82,119 @@ impl PartialEq for CommitSigs {
     }
 }
 
+impl Commit {
+    /// This is a private helper method to iterate over the underlying
+    /// votes to compute the voting power (see `voting_power_in` below).
+    pub fn signed_votes(&self, chain_id: chain::Id) -> Vec<vote::SignedVote> {
+        let mut votes = non_absent_votes(&self);
+        votes
+            .drain(..)
+            .map(|vote| {
+                vote::SignedVote::new(
+                    (&vote).into(),
+                    &chain_id.to_string(),
+                    vote.validator_address,
+                    vote.signature,
+                )
+            })
+            .collect()
+    }
+}
+
+impl ProvableCommit for Commit {
+    type ValidatorSet = Set;
+
+    fn header_hash(&self) -> hash::Hash {
+        self.block_id.hash
+    }
+    fn voting_power_in(&self, chain_id: chain::Id, validators: &Set) -> Result<u64, Error> {
+        let mut seen_votes: HashSet<account::Id> = HashSet::new();
+        // NOTE we don't know the validators that committed this block,
+        // so we have to check for each vote if its validator is already known.
+        let mut signed_power = 0u64;
+        for vote in &self.signed_votes(chain_id) {
+            // Only count if this vote is from a known validator.
+            let val_id = vote.validator_id();
+
+            let val = match validators.validator(val_id) {
+                Some(v) => v,
+                None => continue,
+            };
+
+            // Fail if we have seen vote from this validator before
+            if seen_votes.contains(&val_id) {
+                fail!(
+                    Kind::ImplementationSpecific,
+                    "Duplicate vote found by validator {:?}",
+                    val_id,
+                );
+            } else {
+                seen_votes.insert(val_id);
+            }
+
+            // check vote is valid from validator
+            let sign_bytes = vote.sign_bytes();
+
+            if !val.verify_signature(&sign_bytes, vote.signature()) {
+                fail!(
+                    Kind::ImplementationSpecific,
+                    "Couldn't verify signature {:?} with validator {:?} on sign_bytes {:?}",
+                    vote.signature(),
+                    val,
+                    sign_bytes,
+                );
+            }
+            signed_power += val.power();
+        }
+
+        Ok(signed_power)
+    }
+
+    fn validate(&self, vals: &Self::ValidatorSet) -> Result<(), Error> {
+        // TODO: self.block_id cannot be zero in the same way as in go
+        // clarify if this another encoding related issue
+        if self.signatures.len() == 0 {
+            fail!(Kind::ImplementationSpecific, "no signatures for commit");
+        }
+        if self.signatures.len() != vals.validators().len() {
+            fail!(
+                Kind::ImplementationSpecific,
+                "commit signatures count: {} doesn't match validators count: {}",
+                self.signatures.len(),
+                vals.validators().len()
+            );
+        }
+
+        // TODO: this last check is only necessary if we do full verification (2/3)
+        // https://github.com/informalsystems/tendermint-rs/issues/281
+        // returns ImplementationSpecific error if it detects a signer
+        // that is not present in the validator set:
+        for commit_sig in self.signatures.iter() {
+            let extracted_validator_address;
+            match commit_sig {
+                // Todo: https://github.com/informalsystems/tendermint-rs/issues/260 - CommitSig validator address missing in Absent vote
+                CommitSig::BlockIDFlagAbsent => continue,
+                CommitSig::BlockIDFlagCommit {
+                    validator_address, ..
+                } => extracted_validator_address = validator_address,
+                CommitSig::BlockIDFlagNil {
+                    validator_address, ..
+                } => extracted_validator_address = validator_address,
+            }
+            if vals.validator(*extracted_validator_address) == None {
+                fail!(
+                    Kind::ImplementationSpecific,
+                    "Found a faulty signer ({}) not present in the validator set ({})",
+                    extracted_validator_address,
+                    vals.hash()
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
 /// SignedHeader bundles a [`Header`] and a [`Commit`] for convenience.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct SignedHeader<C, H> {
@@ -108,26 +221,6 @@ where
 }
 
 pub type LightSignedHeader = SignedHeader<Commit, header::Header>;
-
-impl LightSignedHeader {
-    /// This is a private helper method to iterate over the underlying
-    /// votes to compute the voting power (see `voting_power_in` below).
-    pub fn signed_votes(&self) -> Vec<vote::SignedVote> {
-        let chain_id = self.header.chain_id.to_string();
-        let mut votes = non_absent_votes(&self.commit);
-        votes
-            .drain(..)
-            .map(|vote| {
-                vote::SignedVote::new(
-                    (&vote).into(),
-                    &chain_id,
-                    vote.validator_address,
-                    vote.signature,
-                )
-            })
-            .collect()
-    }
-}
 
 // this private helper function does *not* do any validation but extracts
 // all non-BlockIDFlagAbsent votes from the commit:
@@ -174,98 +267,4 @@ fn non_absent_votes(commit: &Commit) -> Vec<vote::Vote> {
         })
     }
     votes
-}
-
-impl ProvableCommit for LightSignedHeader {
-    type ValidatorSet = Set;
-
-    fn header_hash(&self) -> hash::Hash {
-        self.commit.block_id.hash
-    }
-    fn voting_power_in(&self, validators: &Set) -> Result<u64, Error> {
-        let mut seen_votes: HashSet<account::Id> = HashSet::new();
-        // NOTE we don't know the validators that committed this block,
-        // so we have to check for each vote if its validator is already known.
-        let mut signed_power = 0u64;
-        for vote in &self.signed_votes() {
-            // Only count if this vote is from a known validator.
-            let val_id = vote.validator_id();
-
-            let val = match validators.validator(val_id) {
-                Some(v) => v,
-                None => continue,
-            };
-
-            // Fail if we have seen vote from this validator before
-            if seen_votes.contains(&val_id) {
-                fail!(
-                    Kind::ImplementationSpecific,
-                    "Duplicate vote found by validator {:?}",
-                    val_id,
-                );
-            } else {
-                seen_votes.insert(val_id);
-            }
-
-            // check vote is valid from validator
-            let sign_bytes = vote.sign_bytes();
-
-            if !val.verify_signature(&sign_bytes, vote.signature()) {
-                fail!(
-                    Kind::ImplementationSpecific,
-                    "Couldn't verify signature {:?} with validator {:?} on sign_bytes {:?}",
-                    vote.signature(),
-                    val,
-                    sign_bytes,
-                );
-            }
-            signed_power += val.power();
-        }
-
-        Ok(signed_power)
-    }
-
-    fn validate(&self, vals: &Self::ValidatorSet) -> Result<(), Error> {
-        // TODO: self.commit.block_id cannot be zero in the same way as in go
-        // clarify if this another encoding related issue
-        if self.commit.signatures.len() == 0 {
-            fail!(Kind::ImplementationSpecific, "no signatures for commit");
-        }
-        if self.commit.signatures.len() != vals.validators().len() {
-            fail!(
-                Kind::ImplementationSpecific,
-                "commit signatures count: {} doesn't match validators count: {}",
-                self.commit.signatures.len(),
-                vals.validators().len()
-            );
-        }
-
-        // TODO: this last check is only necessary if we do full verification (2/3)
-        // https://github.com/informalsystems/tendermint-rs/issues/281
-        // returns ImplementationSpecific error if it detects a signer
-        // that is not present in the validator set:
-        for commit_sig in self.commit.signatures.iter() {
-            let extracted_validator_address;
-            match commit_sig {
-                // Todo: https://github.com/informalsystems/tendermint-rs/issues/260 - CommitSig validator address missing in Absent vote
-                CommitSig::BlockIDFlagAbsent => continue,
-                CommitSig::BlockIDFlagCommit {
-                    validator_address, ..
-                } => extracted_validator_address = validator_address,
-                CommitSig::BlockIDFlagNil {
-                    validator_address, ..
-                } => extracted_validator_address = validator_address,
-            }
-            if vals.validator(*extracted_validator_address) == None {
-                fail!(
-                    Kind::ImplementationSpecific,
-                    "Found a faulty signer ({}) not present in the validator set ({})",
-                    extracted_validator_address,
-                    vals.hash()
-                );
-            }
-        }
-
-        Ok(())
-    }
 }
