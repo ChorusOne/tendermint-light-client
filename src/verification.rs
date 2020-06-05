@@ -146,12 +146,17 @@ where
         }
         Ordering::Greater => {
             let trusted_vals = trusted_state.validators();
-            verify_commit_trusting(trusted_vals, untrusted_commit, trust_threshold)?;
+            verify_commit_trusting(
+                trusted_vals,
+                untrusted_header,
+                untrusted_commit,
+                trust_threshold,
+            )?;
         }
     }
 
     // All validation passed successfully. Verify the validators correctly committed the block.
-    verify_commit_full(untrusted_vals, untrusted_sh.commit())
+    verify_commit_full(untrusted_vals, untrusted_header, untrusted_commit)
 }
 
 /// Validate the validators, next validators, against the signed header.
@@ -203,12 +208,13 @@ where
 /// NOTE: These validators are expected to be the correct validators for the commit,
 /// but since we're using voting_power_in, we can't actually detect if there's
 /// votes from validators not in the set.
-pub fn verify_commit_full<C>(vals: &C::ValidatorSet, commit: &C) -> Result<(), Error>
+pub fn verify_commit_full<H, C>(vals: &C::ValidatorSet, header: &H, commit: &C) -> Result<(), Error>
 where
     C: ProvableCommit,
+    H: Header,
 {
     let total_power = vals.total_power();
-    let signed_power = commit.voting_power_in(vals)?;
+    let signed_power = commit.voting_power_in(header.chain_id(), vals)?;
 
     // check the signers account for +2/3 of the voting power
     if signed_power * 3 <= total_power * 2 {
@@ -226,17 +232,19 @@ where
 /// NOTE the given validators do not necessarily correspond to the validator set for this commit,
 /// but there may be some intersection. The trust_level parameter allows clients to require more
 /// than +1/3 by implementing the TrustLevel trait accordingly.
-pub fn verify_commit_trusting<C, L>(
+pub fn verify_commit_trusting<H, C, L>(
     validators: &C::ValidatorSet,
+    header: &H,
     commit: &C,
     trust_level: L,
 ) -> Result<(), Error>
 where
     C: ProvableCommit,
     L: TrustThreshold,
+    H: Header,
 {
     let total_power = validators.total_power();
-    let signed_power = commit.voting_power_in(validators)?;
+    let signed_power = commit.voting_power_in(header.chain_id(), validators)?;
 
     // check the signers account for +1/3 of the voting power (or more if the
     // trust_level requires so)

@@ -67,6 +67,10 @@ pub struct Header {
 impl HeaderT for Header {
     type Time = Time;
 
+    fn chain_id(&self) -> chain::Id {
+        self.chain_id
+    }
+
     fn height(&self) -> HeightT {
         self.height.value()
     }

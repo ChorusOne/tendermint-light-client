@@ -14,6 +14,8 @@ pub use types::block::header::Header as LightHeader;
 pub use types::block::commit::LightSignedHeader;
 // Generic signed header
 pub use types::block::commit::SignedHeader;
+// Commit type which implements ProvableCommit
+pub use types::block::commit::Commit;
 // Trusted state data types
 pub use types::trusted::TrustThresholdFraction;
 pub use types::trusted::TrustedState;
