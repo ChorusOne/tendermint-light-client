@@ -14,8 +14,6 @@ pub use types::block::header::Header as LightHeader;
 pub use types::block::commit::LightSignedHeader;
 // Generic signed header
 pub use types::block::commit::SignedHeader;
-// Converts a LightSignedHeader to Generic signed header
-pub use types::block::commit::convert_to_signed_header;
 // Trusted state data types
 pub use types::trusted::TrustThresholdFraction;
 pub use types::trusted::TrustedState;
@@ -23,8 +21,33 @@ pub use types::trusted::TrustedState;
 pub use types::validator::Info as LightValidatorInfo;
 pub use types::validator::Set as LightValidatorSet;
 
-// Function to call to validate a header
+use crate::errors::Error;
+use std::time::{Duration, SystemTime};
+
+// Generic Function to call to validate a header
 pub use verification::verify_single;
+
+// Wrapper around generic verification function
+// with concrete light types
+pub fn verify_single_light(
+    trusted_state: TrustedState<LightSignedHeader, LightHeader>,
+    untrusted_sh: &SignedHeader<LightSignedHeader, LightHeader>,
+    untrusted_vals: &LightValidatorSet,
+    untrusted_next_vals: &LightValidatorSet,
+    trust_threshold: TrustThresholdFraction,
+    trusting_period: Duration,
+    now: SystemTime,
+) -> Result<TrustedState<LightSignedHeader, LightHeader>, Error> {
+    verify_single(
+        trusted_state,
+        untrusted_sh,
+        untrusted_vals,
+        untrusted_next_vals,
+        trust_threshold,
+        trusting_period,
+        now,
+    )
+}
 
 /// Traits inherited by some of the exposed types
 pub mod traits {
