@@ -101,6 +101,53 @@ impl Commit {
     }
 }
 
+// this private helper function does *not* do any validation but extracts
+// all non-BlockIDFlagAbsent votes from the commit:
+fn non_absent_votes(commit: &Commit) -> Vec<vote::Vote> {
+    let mut votes: Vec<vote::Vote> = Default::default();
+    for (i, commit_sig) in commit.signatures.iter().enumerate() {
+        let extracted_validator_address;
+        let extracted_timestamp;
+        let extracted_signature;
+        let block_id;
+        match commit_sig {
+            CommitSig::BlockIDFlagAbsent { .. } => continue,
+            CommitSig::BlockIDFlagCommit {
+                validator_address,
+                timestamp,
+                signature,
+            } => {
+                extracted_validator_address = validator_address;
+                extracted_timestamp = timestamp;
+                extracted_signature = signature;
+                block_id = Some(commit.block_id.clone());
+            }
+            CommitSig::BlockIDFlagNil {
+                validator_address,
+                timestamp,
+                signature,
+            } => {
+                extracted_validator_address = validator_address;
+                extracted_timestamp = timestamp;
+                extracted_signature = signature;
+                block_id = None;
+            }
+        }
+        votes.push(vote::Vote {
+            vote_type: vote::Type::Precommit,
+            height: commit.height,
+            round: commit.round,
+            block_id,
+            timestamp: *extracted_timestamp,
+            validator_address: *extracted_validator_address,
+            validator_index: u64::try_from(i)
+                .expect("usize to u64 conversion failed for validator index"),
+            signature: extracted_signature.clone(),
+        })
+    }
+    votes
+}
+
 impl ProvableCommit for Commit {
     type ValidatorSet = Set;
 
@@ -221,50 +268,3 @@ where
 }
 
 pub type LightSignedHeader = SignedHeader<Commit, header::Header>;
-
-// this private helper function does *not* do any validation but extracts
-// all non-BlockIDFlagAbsent votes from the commit:
-fn non_absent_votes(commit: &Commit) -> Vec<vote::Vote> {
-    let mut votes: Vec<vote::Vote> = Default::default();
-    for (i, commit_sig) in commit.signatures.iter().enumerate() {
-        let extracted_validator_address;
-        let extracted_timestamp;
-        let extracted_signature;
-        let block_id;
-        match commit_sig {
-            CommitSig::BlockIDFlagAbsent { .. } => continue,
-            CommitSig::BlockIDFlagCommit {
-                validator_address,
-                timestamp,
-                signature,
-            } => {
-                extracted_validator_address = validator_address;
-                extracted_timestamp = timestamp;
-                extracted_signature = signature;
-                block_id = Some(commit.block_id.clone());
-            }
-            CommitSig::BlockIDFlagNil {
-                validator_address,
-                timestamp,
-                signature,
-            } => {
-                extracted_validator_address = validator_address;
-                extracted_timestamp = timestamp;
-                extracted_signature = signature;
-                block_id = None;
-            }
-        }
-        votes.push(vote::Vote {
-            vote_type: vote::Type::Precommit,
-            height: commit.height,
-            round: commit.round,
-            block_id,
-            timestamp: *extracted_timestamp,
-            validator_address: *extracted_validator_address,
-            validator_index: u64::try_from(i)
-                .expect("usize to u64 conversion failed for validator index"),
-            signature: extracted_signature.clone(),
-        })
-    }
-    votes
-}
