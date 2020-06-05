@@ -10,7 +10,7 @@ use crate::types::validator::Set;
 use crate::types::vote::vote;
 use crate::types::{account, hash};
 use anomaly::fail;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 use std::convert::TryFrom;
 use std::fmt::Debug;
 use std::ops::Deref;

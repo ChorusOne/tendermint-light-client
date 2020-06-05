@@ -1,4 +1,3 @@
-use crate::types::amino as amino_types;
 use crate::types::amino::message::AminoMessage;
 use crate::types::block;
 use crate::types::signature::Signature;

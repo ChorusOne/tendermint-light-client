@@ -1,5 +1,4 @@
 use crate::errors::{Error, Kind};
-use crate::types::block;
 use crate::types::block::commit::SignedHeader;
 use crate::types::block::traits::{commit::ProvableCommit, header::Header};
 use crate::types::traits::trusted::TrustThreshold;
