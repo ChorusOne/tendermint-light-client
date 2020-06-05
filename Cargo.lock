@@ -552,7 +552,7 @@ dependencies = [
 
 [[package]]
 name = "tendermint_light_client"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "anomaly",
  "chrono",
