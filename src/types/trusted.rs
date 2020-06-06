@@ -49,7 +49,7 @@ impl TrustThreshold for TrustThresholdFraction {
 
 impl Default for TrustThresholdFraction {
     fn default() -> Self {
-        Self::new(1, 3)
+        Self::new(2, 3)
             .expect("initializing TrustThresholdFraction with valid fraction mustn't panic")
     }
 }
