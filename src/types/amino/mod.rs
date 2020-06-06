@@ -6,7 +6,7 @@ use crate::types::hash::Hash;
 use crate::types::time::{ParseTimestamp, Time};
 use crate::types::{block, vote::vote};
 use crate::types::{chain, hash};
-use crate::utils::try_cast;
+use crate::utils::try_cast_u64_to_i64;
 use anomaly::BoxError;
 use chrono::offset::TimeZone;
 use chrono::Utc;
@@ -209,11 +209,11 @@ impl TryFrom<&vote::Vote> for Vote {
     type Error = Error;
 
     fn try_from(vote: &vote::Vote) -> Result<Self, Self::Error> {
-        let possible_height = try_cast(vote.height.value());
+        let possible_height = try_cast_u64_to_i64(vote.height.value());
         if possible_height.is_none() {
             return Err(Kind::Parse.into());
         }
-        let possible_validator_index = try_cast(vote.validator_index);
+        let possible_validator_index = try_cast_u64_to_i64(vote.validator_index);
         if possible_validator_index.is_none() {
             return Err(Kind::Parse.into());
         }
