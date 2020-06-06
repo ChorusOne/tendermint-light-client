@@ -393,7 +393,7 @@ mod tests {
 
         //*****
         // Err
-        let err = "signed voting power (0) is too small fraction of total voting power: (1), threshold: TrustThresholdFraction { numerator: 1, denominator: 3 }";
+        let err = "signed voting power (0) is too small fraction of total voting power: (1), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap - new val set without the original signer
         vac = ValsAndCommit::new(vec![1], vec![1]);
@@ -420,16 +420,20 @@ mod tests {
         vac = ValsAndCommit::new(vec![0, 1, 2], vec![0, 1, 2]);
         assert_single_ok(ts, vac);
 
+        //*************
+        // Err
+        let err = "signed voting power (1) is too small fraction of total voting power: (2), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+
         // 50% overlap (one original signer still present)
         vac = ValsAndCommit::new(vec![0], vec![0]);
-        assert_single_ok(ts, vac);
+        assert_single_err(ts, vac, err.clone().into());
 
         vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![1, 2, 3]);
-        assert_single_ok(ts, vac);
+        assert_single_err(ts, vac, err.clone().into());
 
         //*************
         // Err
-        let err = "signed voting power (0) is too small fraction of total voting power: (2), threshold: TrustThresholdFraction { numerator: 1, denominator: 3 }";
+        let err = "signed voting power (0) is too small fraction of total voting power: (2), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap (neither original signer still present)
         vac = ValsAndCommit::new(vec![2], vec![2]);
@@ -456,16 +460,18 @@ mod tests {
         vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 2, 3]);
         assert_single_ok(ts, vac);
 
-        // 66% overlap (two original signers still present)
-        vac = ValsAndCommit::new(vec![0, 1], vec![0, 1]);
-        assert_single_ok(ts, vac);
-
-        vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![1, 2, 3]);
-        assert_single_ok(ts, vac);
-
         //*************
         // Err
-        let err = "signed voting power (1) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 1, denominator: 3 }";
+        let err = "signed voting power (2) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+
+        // 66% overlap (two original signers still present)
+        vac = ValsAndCommit::new(vec![0, 1], vec![0, 1]);
+        assert_single_err(ts, vac, err.clone().into());
+
+        vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![1, 2, 3]);
+        assert_single_err(ts, vac, err.clone().into());
+
+        let err = "signed voting power (1) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 33% overlap (one original signer still present)
         vac = ValsAndCommit::new(vec![0], vec![0]);
@@ -478,7 +484,7 @@ mod tests {
         vac = ValsAndCommit::new(vec![3], vec![2]);
         assert_single_err(ts, vac, err.into());
 
-        let err = "signed voting power (0) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 1, denominator: 3 }";
+        let err = "signed voting power (0) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap (original signer is still in val set but not in commit)
         vac = ValsAndCommit::new(vec![0, 3, 4, 5], vec![3, 4, 5]);
@@ -500,20 +506,22 @@ mod tests {
         let vac = ValsAndCommit::new(vec![0, 1, 2, 4], vec![0, 1, 2, 4]);
         assert_single_ok(ts, vac);
 
+        let err = "signed voting power (2) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+
         // 50% overlap (two signers still present)
         let vac = ValsAndCommit::new(vec![0, 1], vec![0, 1]);
-        assert_single_ok(ts, vac);
+        assert_single_err(ts, vac, err.into());
 
         let vac = ValsAndCommit::new(vec![0, 1, 4, 5], vec![0, 1, 4, 5]);
-        assert_single_ok(ts, vac);
+        assert_single_err(ts, vac, err.into());
 
-        let err = "signed voting power (1) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 1, denominator: 3 }";
+        let err = "signed voting power (1) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 25% overlap (one signer still present)
         let vac = ValsAndCommit::new(vec![0, 4, 5, 6], vec![0, 4, 5, 6]);
         assert_single_err(ts, vac, err.into());
 
-        let err = "signed voting power (0) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 1, denominator: 3 }";
+        let err = "signed voting power (0) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap (none of the signers present)
         let vac = ValsAndCommit::new(vec![4, 5, 6], vec![4, 5, 6]);
