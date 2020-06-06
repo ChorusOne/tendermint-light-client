@@ -168,7 +168,6 @@ impl ProvableCommit for Commit {
             if possible_signed_vote.is_err() {
                 return Err(possible_signed_vote.err().unwrap());
             }
-
             let vote = possible_signed_vote.unwrap();
 
             // Only count if this vote is from a known validator.
