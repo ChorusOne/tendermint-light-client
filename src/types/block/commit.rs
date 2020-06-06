@@ -90,12 +90,12 @@ impl Commit {
         votes
             .drain(..)
             .map(|vote| {
-                let v = (&vote).try_into();
-                if v.is_err() {
-                    Err(v.err().unwrap())
+                let possible_vote = (&vote).try_into();
+                if possible_vote.is_err() {
+                    Err(possible_vote.err().unwrap())
                 } else {
                     Ok(vote::SignedVote::new(
-                        v.unwrap(),
+                        possible_vote.unwrap(),
                         &chain_id.to_string(),
                         vote.validator_address,
                         vote.signature,
