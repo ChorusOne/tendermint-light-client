@@ -1,11 +1,12 @@
 pub(crate) mod message;
 
-use crate::errors::Error;
+use crate::errors::{Error, Kind};
 use crate::types::block::parts;
 use crate::types::hash::Hash;
 use crate::types::time::{ParseTimestamp, Time};
 use crate::types::{block, vote::vote};
 use crate::types::{chain, hash};
+use crate::utils::try_cast;
 use anomaly::BoxError;
 use chrono::offset::TimeZone;
 use chrono::Utc;
@@ -204,11 +205,21 @@ impl Vote {
     }
 }
 
-impl From<&vote::Vote> for Vote {
-    fn from(vote: &vote::Vote) -> Self {
-        Vote {
+impl TryFrom<&vote::Vote> for Vote {
+    type Error = Error;
+
+    fn try_from(vote: &vote::Vote) -> Result<Self, Self::Error> {
+        let possible_height = try_cast(vote.height.value());
+        if possible_height.is_none() {
+            return Err(Kind::Parse.into());
+        }
+        let possible_validator_index = try_cast(vote.validator_index);
+        if possible_validator_index.is_none() {
+            return Err(Kind::Parse.into());
+        }
+        Ok(Vote {
             vote_type: vote.vote_type.to_u32(),
-            height: vote.height.value() as i64, // TODO potential overflow :-/
+            height: possible_height.unwrap(),
             round: vote.round as i64,
             block_id: vote.block_id.as_ref().map(|block_id| BlockId {
                 hash: block_id.hash.as_bytes().to_vec(),
@@ -216,9 +227,9 @@ impl From<&vote::Vote> for Vote {
             }),
             timestamp: Some(TimeMsg::from(vote.timestamp)),
             validator_address: vote.validator_address.as_bytes().to_vec(),
-            validator_index: vote.validator_index as i64, // TODO potential overflow :-/
+            validator_index: possible_validator_index.unwrap(),
             signature: vote.signature.as_bytes().to_vec(),
-        }
+        })
     }
 }
 

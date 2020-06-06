@@ -11,7 +11,7 @@ use crate::types::vote::vote;
 use crate::types::{account, chain, hash};
 use anomaly::fail;
 use std::collections::HashSet;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::fmt::Debug;
 use std::ops::Deref;
 use std::slice;
@@ -85,17 +85,22 @@ impl PartialEq for CommitSigs {
 impl Commit {
     /// This is a private helper method to iterate over the underlying
     /// votes to compute the voting power (see `voting_power_in` below).
-    pub fn signed_votes(&self, chain_id: chain::Id) -> Vec<vote::SignedVote> {
+    pub fn signed_votes(&self, chain_id: chain::Id) -> Vec<Result<vote::SignedVote, Error>> {
         let mut votes = non_absent_votes(&self);
         votes
             .drain(..)
             .map(|vote| {
-                vote::SignedVote::new(
-                    (&vote).into(),
-                    &chain_id.to_string(),
-                    vote.validator_address,
-                    vote.signature,
-                )
+                let v = (&vote).try_into();
+                if v.is_err() {
+                    Err(v.err().unwrap())
+                } else {
+                    Ok(vote::SignedVote::new(
+                        v.unwrap(),
+                        &chain_id.to_string(),
+                        vote.validator_address,
+                        vote.signature,
+                    ))
+                }
             })
             .collect()
     }
@@ -159,7 +164,13 @@ impl ProvableCommit for Commit {
         // NOTE we don't know the validators that committed this block,
         // so we have to check for each vote if its validator is already known.
         let mut signed_power = 0u64;
-        for vote in &self.signed_votes(chain_id) {
+        for possible_signed_vote in self.signed_votes(chain_id) {
+            if possible_signed_vote.is_err() {
+                return Err(possible_signed_vote.err().unwrap());
+            }
+
+            let vote = possible_signed_vote.unwrap();
+
             // Only count if this vote is from a known validator.
             let val_id = vote.validator_id();
 
