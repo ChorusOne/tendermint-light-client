@@ -2,6 +2,7 @@ mod errors;
 mod merkle_tree;
 mod serialization;
 mod types;
+mod utils;
 mod verification;
 
 #[macro_use]
@@ -24,9 +25,6 @@ pub use types::validator::Info as LightValidatorInfo;
 pub use types::validator::Set as LightValidatorSet;
 // Time data type.
 pub use types::time::Time;
-
-use crate::errors::Error;
-use std::time::{Duration, SystemTime};
 
 // Generic Function to call to validate a header
 pub use verification::verify_single;
