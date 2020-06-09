@@ -276,10 +276,13 @@ where
 #[cfg(test)]
 mod tests {
     use crate::types::block::traits::header::Header;
+    use crate::types::hash::{Algorithm, Hash};
     use crate::types::mocks::{fixed_hash, MockCommit, MockHeader, MockSignedHeader, MockValSet};
     use crate::types::traits::validator_set::ValidatorSet;
     use crate::verification::{is_within_trust_period, verify_single_inner};
-    use crate::{TrustThresholdFraction, TrustedState};
+    use crate::{validate_initial_signed_header_and_valset, TrustThresholdFraction, TrustedState};
+    use rand::Rng;
+    use std::convert::TryInto;
     use std::time::{Duration, SystemTime};
 
     type MockState = TrustedState<MockCommit<usize>, MockHeader, usize>;
@@ -545,6 +548,83 @@ mod tests {
         // 0% overlap (one signer present in val set but does not commit)
         let vac = ValsAndCommit::new(vec![3, 4, 5, 6], vec![4, 5, 6]);
         assert_single_err(ts, vac, err.into());
+    }
+
+    #[test]
+    fn test_validate_initial_signed_header_and_valset() {
+        // All validators have signed commit, Ok
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 2, 3]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        assert!(validate_initial_signed_header_and_valset(&un_sh, &un_vals).is_ok());
+
+        // 3/4 validators have signed commit, Ok
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 2]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        assert!(validate_initial_signed_header_and_valset(&un_sh, &un_vals).is_ok());
+
+        // 1/2 validators have signed commit, Error
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap().to_string(),
+            "signed voting power (2) do not account for +2/3 of the total voting power: (4)"
+        );
+
+        // invalid commits are ignored and same error is returned
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 5, 6, 7]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap().to_string(),
+            "signed voting power (2) do not account for +2/3 of the total voting power: (4)"
+        );
+
+        // Header's hash should be consistent
+        let mut rng = rand::thread_rng();
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 5, 6, 7]);
+        let time = init_time() + Duration::new(10, 0);
+        let height = 10;
+        let un_vals = MockValSet::new(vac.vals_vec);
+        let header = MockHeader::new(height, time, un_vals.hash(), un_vals.hash());
+        let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen_range(0, 255)).collect();
+        let commit = MockCommit::new(
+            Hash::new(Algorithm::Sha256, random_bytes.as_slice()).unwrap(),
+            vac.commit_vec,
+        );
+        let un_sh = MockSignedHeader::new(commit, header);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert!(res
+            .err()
+            .unwrap()
+            .to_string()
+            .starts_with("header hash does not match the hash in the commit "));
+
+        // Validator's hash should be consistent
+        let mut rng = rand::thread_rng();
+        let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen_range(0, 255)).collect();
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 5, 6, 7]);
+        let time = init_time() + Duration::new(10, 0);
+        let height = 10;
+        let un_vals = MockValSet::new(vac.vals_vec);
+        let header = MockHeader::new(
+            height,
+            time,
+            Hash::new(Algorithm::Sha256, random_bytes.as_slice()).unwrap(),
+            un_vals.hash(),
+        );
+        let commit = MockCommit::new(header.hash(), vac.commit_vec);
+        let un_sh = MockSignedHeader::new(commit, header);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert!(res
+            .err()
+            .unwrap()
+            .to_string()
+            .starts_with("header's validator hash does not match actual validator hash"));
     }
 
     #[test]
