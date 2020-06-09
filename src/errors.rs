@@ -29,17 +29,17 @@ pub enum Kind {
     NonIncreasingTime,
 
     /// Invalid validator hash.
-    #[error("header's validator hash does not match actual validator hash ({header_val_hash:?}!={val_hash:?})")]
+    #[error("header's validator hash does not match actual validator hash ({header_val_hash:?}!={expected_val_hash:?})")]
     InvalidValidatorSet {
         header_val_hash: Hash,
-        val_hash: Hash,
+        expected_val_hash: Hash,
     },
 
     /// Invalid next validator hash.
-    #[error("header's next validator hash does not match next_val_hash ({header_next_val_hash:?}!={next_val_hash:?})")]
+    #[error("header's next validator hash does not match next_val_hash ({header_next_val_hash:?}!={expected_next_val_hash:?})")]
     InvalidNextValidatorSet {
         header_next_val_hash: Hash,
-        next_val_hash: Hash,
+        expected_next_val_hash: Hash,
     },
 
     /// Commit is not for the header we expected.
@@ -55,14 +55,14 @@ pub enum Kind {
     #[error("signed voting power ({signed}) do not account for +2/3 of the total voting power: ({total})")]
     InvalidCommit { total: u64, signed: u64 },
 
-    /// This means the trust threshold (default +1/3) is not met.
-    #[error("signed voting power ({}) is too small fraction of total voting power: ({}), threshold: {}",
-    .signed, .total, .trust_treshold
+    /// This means the trust threshold (default +2/3) is not met.
+    #[error("signed voting power ({}) is too small fraction of total trusted voting power: ({}), threshold: {}",
+    .signed, .total, .trust_threshold
     )]
-    InsufficientVotingPower {
+    InsufficientSignedVotingPower {
         total: u64,
         signed: u64,
-        trust_treshold: String,
+        trust_threshold: String,
     },
 
     /// This is returned if an invalid TrustThreshold is created.

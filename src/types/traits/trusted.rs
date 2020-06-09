@@ -6,5 +6,8 @@ use std::fmt::Debug;
 /// and trusted validator set is sufficient for a commit to be
 /// accepted going forward.
 pub trait TrustThreshold: Copy + Clone + Debug + Serialize + DeserializeOwned {
-    fn is_enough_power(&self, signed_voting_power: u64, total_voting_power: u64) -> bool;
+    fn is_enough_power(&self, available_voting_power: u64, total_voting_power: u64) -> bool;
+
+    // Contract: Requires enough power as per trust threshold
+    fn minimum_power_to_be_trusted(&self, total_voting_power: u64) -> u64;
 }

@@ -1,6 +1,6 @@
 [package]
 name = "tendermint_light_client"
-version = "0.1.7"
+version = "0.2.0"
 authors = ["Parth Desai <desaiparth08@gmail.com>", "Joe Bowman <joe@chorus.one>"]
 edition = "2018"
 
@@ -24,3 +24,4 @@ prost-amino-derive = "0.5.0"
 
 [dev-dependencies]
 serde_json = "1"
+rand = "0.7.3"

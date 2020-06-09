@@ -2,6 +2,7 @@ use crate::errors::{Error, Kind};
 use crate::types::block::commit::SignedHeader;
 use crate::types::block::traits::{commit::ProvableCommit, header::Header};
 use crate::types::traits::trusted::TrustThreshold;
+use crate::types::traits::validator::Validator;
 use serde::de::Deserialize;
 use std::fmt::Debug;
 
@@ -43,7 +44,11 @@ impl TrustThresholdFraction {
 // TODO: should this go in the central place all impls live instead? (currently lite_impl)
 impl TrustThreshold for TrustThresholdFraction {
     fn is_enough_power(&self, signed_voting_power: u64, total_voting_power: u64) -> bool {
-        signed_voting_power * self.denominator > total_voting_power * self.numerator
+        signed_voting_power >= self.minimum_power_to_be_trusted(total_voting_power)
+    }
+
+    fn minimum_power_to_be_trusted(&self, total_voting_power: u64) -> u64 {
+        return ((total_voting_power * self.numerator) / self.denominator) + 1;
     }
 }
 
@@ -63,19 +68,21 @@ impl Default for TrustThresholdFraction {
 /// the proper bound when associated types are involved.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(bound(deserialize = "C::ValidatorSet: Deserialize<'de>"))]
-pub struct TrustedState<C, H>
+pub struct TrustedState<C, H, V>
 where
     H: Header,
-    C: ProvableCommit,
+    C: ProvableCommit<V>,
+    V: Validator,
 {
     last_header: SignedHeader<C, H>, // height H-1
     validators: C::ValidatorSet,     // height H
 }
 
-impl<C, H> TrustedState<C, H>
+impl<C, H, V> TrustedState<C, H, V>
 where
     H: Header,
-    C: ProvableCommit,
+    C: ProvableCommit<V>,
+    V: Validator,
 {
     /// Initialize the TrustedState with the given signed header and validator set.
     /// Note that if the height of the passed in header is h-1, the passed in validator set

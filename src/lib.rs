@@ -28,9 +28,9 @@ pub use types::time::Time;
 
 // Generic Function to call to validate a header
 pub use verification::verify_single;
-// Generic function to validate a commit without checking
-// with trusted state. This is useful to initialize a client
-pub use verification::verify_commit_full;
+// Generic function to validate initial signed header and validator set
+// Client must create trusted set only if this function returns Ok.
+pub use verification::validate_initial_signed_header_and_valset;
 
 /// Traits inherited by some of the exposed types
 pub mod traits {

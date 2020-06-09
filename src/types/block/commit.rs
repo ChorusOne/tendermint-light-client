@@ -4,7 +4,7 @@ use crate::types::block::header;
 use crate::types::block::height::Height;
 use crate::types::block::id::Id;
 use crate::types::block::traits::commit::ProvableCommit;
-use crate::types::block::traits::header::Header;
+use crate::types::traits::validator::Validator;
 use crate::types::traits::validator_set::ValidatorSet as _;
 use crate::types::validator::Set;
 use crate::types::vote::vote;
@@ -153,13 +153,20 @@ fn non_absent_votes(commit: &Commit) -> Vec<vote::Vote> {
     votes
 }
 
-impl ProvableCommit for Commit {
-    type ValidatorSet = Set;
+impl<V> ProvableCommit<V> for Commit
+where
+    V: Validator,
+{
+    type ValidatorSet = Set<V>;
 
     fn header_hash(&self) -> hash::Hash {
         self.block_id.hash
     }
-    fn voting_power_in(&self, chain_id: chain::Id, validators: &Set) -> Result<u64, Error> {
+    fn voting_power_in(
+        &self,
+        chain_id: chain::Id,
+        validators: &Self::ValidatorSet,
+    ) -> Result<u64, Error> {
         let mut seen_votes: HashSet<account::Id> = HashSet::new();
         // NOTE we don't know the validators that committed this block,
         // so we have to check for each vote if its validator is already known.
@@ -213,12 +220,12 @@ impl ProvableCommit for Commit {
         if self.signatures.len() == 0 {
             fail!(Kind::ImplementationSpecific, "no signatures for commit");
         }
-        if self.signatures.len() != vals.validators().len() {
+        if self.signatures.len() != vals.number_of_validators() {
             fail!(
                 Kind::ImplementationSpecific,
                 "commit signatures count: {} doesn't match validators count: {}",
                 self.signatures.len(),
-                vals.validators().len()
+                vals.number_of_validators()
             );
         }
 
@@ -238,7 +245,7 @@ impl ProvableCommit for Commit {
                     validator_address, ..
                 } => extracted_validator_address = validator_address,
             }
-            if vals.validator(*extracted_validator_address) == None {
+            if vals.validator(*extracted_validator_address).is_none() {
                 fail!(
                     Kind::ImplementationSpecific,
                     "Found a faulty signer ({}) not present in the validator set ({})",
@@ -259,11 +266,7 @@ pub struct SignedHeader<C, H> {
     header: H,
 }
 
-impl<C, H> SignedHeader<C, H>
-where
-    C: ProvableCommit,
-    H: Header,
-{
+impl<C, H> SignedHeader<C, H> {
     pub fn new(commit: C, header: H) -> Self {
         Self { commit, header }
     }
