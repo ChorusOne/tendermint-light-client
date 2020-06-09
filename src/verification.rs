@@ -282,7 +282,6 @@ mod tests {
     use crate::verification::{is_within_trust_period, verify_single_inner};
     use crate::{validate_initial_signed_header_and_valset, TrustThresholdFraction, TrustedState};
     use rand::Rng;
-    use std::convert::TryInto;
     use std::time::{Duration, SystemTime};
 
     type MockState = TrustedState<MockCommit<usize>, MockHeader, usize>;
