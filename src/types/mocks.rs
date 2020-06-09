@@ -3,12 +3,18 @@ use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 use crate::errors::{Error, Kind};
+use crate::types::account::Id;
 use crate::types::block::traits::commit::ProvableCommit;
 use crate::types::block::traits::header::{Header, Height};
 use crate::types::chain;
 use crate::types::hash::{Algorithm, Hash};
+use crate::types::proposer_priority::ProposerPriority;
+use crate::types::traits::validator::Validator;
 use crate::types::traits::validator_set::ValidatorSet;
+use crate::types::vote::power::Power;
 use crate::{SignedHeader, TrustedState};
+use std::collections::HashSet;
+use std::iter::FromIterator;
 use std::str::FromStr;
 use std::time::SystemTime;
 
@@ -64,42 +70,101 @@ pub fn json_hash<T: ?Sized + Serialize>(value: &T) -> Hash {
     Hash::new(Algorithm::Sha256, &hashed).unwrap()
 }
 
-// vals are just ints, each has power 1
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MockValSet {
-    // NOTE: use HashSet instead?
-    vals: Vec<usize>,
+impl Validator for usize {
+    fn power(&self) -> u64 {
+        *self as u64
+    }
+
+    fn verify_signature(&self, sign_bytes: &[u8], signature: &[u8]) -> bool {
+        unimplemented!()
+    }
+
+    fn address(&self) -> Id {
+        unimplemented!()
+    }
+
+    fn vote_power(&self) -> Power {
+        unimplemented!()
+    }
+
+    fn proposer_priority(&self) -> Option<ProposerPriority> {
+        unimplemented!()
+    }
+
+    fn hash_bytes(&self) -> Vec<u8> {
+        unimplemented!()
+    }
 }
 
-impl MockValSet {
-    pub fn new(vals: Vec<usize>) -> MockValSet {
+// vals are just ints, each has power 1
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct MockValSet<V> {
+    // NOTE: use HashSet instead?
+    vals: Vec<V>,
+}
+
+impl<V> MockValSet<V>
+where
+    V: Validator,
+{
+    pub fn new(vals: Vec<V>) -> MockValSet<V> {
         MockValSet { vals }
     }
 }
 
-impl ValidatorSet for MockValSet {
+impl<V> ValidatorSet<V> for MockValSet<V>
+where
+    V: Validator + Eq + std::hash::Hash,
+{
     fn hash(&self) -> Hash {
         json_hash(&self)
     }
     fn total_power(&self) -> u64 {
         self.vals.len() as u64
     }
+
+    fn validator(&self, val_id: Id) -> Option<V> {
+        unimplemented!()
+    }
+
+    fn intersect(&self, validator_set: &Self) -> Self {
+        let my_hashset: HashSet<V> = HashSet::from_iter(self.vals.iter().map(|v| v.clone()));
+        let other_hashset: HashSet<V> =
+            HashSet::from_iter(validator_set.vals.iter().map(|v| v.clone()));
+
+        MockValSet::new(
+            my_hashset
+                .intersection(&other_hashset)
+                .map(|v| v.clone())
+                .collect(),
+        )
+    }
+
+    fn number_of_validators(&self) -> usize {
+        unimplemented!()
+    }
 }
 
 // commit is a list of vals that signed.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct MockCommit {
+pub struct MockCommit<V> {
     hash: Hash,
-    vals: Vec<usize>,
+    vals: Vec<V>,
 }
 
-impl MockCommit {
-    pub fn new(hash: Hash, vals: Vec<usize>) -> MockCommit {
+impl<V> MockCommit<V>
+where
+    V: Validator,
+{
+    pub fn new(hash: Hash, vals: Vec<V>) -> MockCommit<V> {
         MockCommit { hash, vals }
     }
 }
-impl ProvableCommit for MockCommit {
-    type ValidatorSet = MockValSet;
+impl<V> ProvableCommit<V> for MockCommit<V>
+where
+    V: Validator + PartialEq + std::hash::Hash + Eq,
+{
+    type ValidatorSet = MockValSet<V>;
 
     fn header_hash(&self) -> Hash {
         self.hash
@@ -116,7 +181,7 @@ impl ProvableCommit for MockCommit {
         // we can't detect it...
         for signer in self.vals.iter() {
             for val in vals.vals.iter() {
-                if signer == val {
+                if *signer == *val {
                     power += 1
                 }
             }
@@ -136,8 +201,8 @@ impl ProvableCommit for MockCommit {
     }
 }
 
-pub type MockSignedHeader = SignedHeader<MockCommit, MockHeader>;
-pub type MockTrustedState = TrustedState<MockCommit, MockHeader>;
+pub type MockSignedHeader = SignedHeader<MockCommit<usize>, MockHeader>;
+pub type MockTrustedState = TrustedState<MockCommit<usize>, MockHeader, usize>;
 
 pub fn fixed_hash() -> Hash {
     Hash::new(Algorithm::Sha256, &Sha256::digest(&[5])).unwrap()

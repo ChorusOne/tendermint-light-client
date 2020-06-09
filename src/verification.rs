@@ -9,6 +9,7 @@ use crate::types::block::commit::SignedHeader;
 use crate::types::block::traits::commit::ProvableCommit;
 use crate::types::block::traits::header::Header;
 use crate::types::traits::trusted::TrustThreshold;
+use crate::types::traits::validator::Validator;
 use crate::types::traits::validator_set::ValidatorSet;
 use crate::types::trusted::TrustedState;
 
@@ -21,19 +22,20 @@ use crate::types::trusted::TrustedState;
 /// header to be trusted.
 ///
 /// This function is primarily for use by IBC handlers.
-pub fn verify_single<H, C, L>(
-    trusted_state: TrustedState<C, H>,
+pub fn verify_single<H, C, L, V>(
+    trusted_state: TrustedState<C, H, V>,
     untrusted_sh: &SignedHeader<C, H>,
     untrusted_vals: &C::ValidatorSet,
     untrusted_next_vals: &C::ValidatorSet,
     trust_threshold: L,
     trusting_period: Duration,
     now: SystemTime,
-) -> Result<TrustedState<C, H>, Error>
+) -> Result<TrustedState<C, H, V>, Error>
 where
     H: Header,
-    C: ProvableCommit,
+    C: ProvableCommit<V>,
     L: TrustThreshold,
+    V: Validator,
 {
     // Fetch the latest state and ensure it hasn't expired.
     let trusted_sh = trusted_state.last_header();
@@ -55,9 +57,28 @@ where
     ))
 }
 
+pub fn validate_initial_signed_header_and_valset<H, C, V>(
+    untrusted_sh: &SignedHeader<C, H>,
+    untrusted_vals: &C::ValidatorSet,
+) -> Result<(), Error>
+where
+    H: Header,
+    C: ProvableCommit<V>,
+    V: Validator,
+{
+    let header = untrusted_sh.header();
+    let commit = untrusted_sh.commit();
+
+    validate(header, commit, untrusted_vals, None)?;
+
+    verify_commit_full(untrusted_vals, header, commit)?;
+
+    Ok(())
+}
+
 /// Returns an error if the header has expired according to the given
 /// trusting_period and current time. If so, the verifier must be reset subjectively.
-pub fn is_within_trust_period<H>(
+fn is_within_trust_period<H>(
     last_header: &H,
     trusting_period: Duration,
     now: SystemTime,
@@ -92,8 +113,8 @@ where
 // and hence it's possible to use it incorrectly.
 // If trusted_state is not expired and this returns Ok, the
 // untrusted_sh and untrusted_next_vals can be considered trusted.
-fn verify_single_inner<H, C, L>(
-    trusted_state: &TrustedState<C, H>,
+fn verify_single_inner<H, C, L, V>(
+    trusted_state: &TrustedState<C, H, V>,
     untrusted_sh: &SignedHeader<C, H>,
     untrusted_vals: &C::ValidatorSet,
     untrusted_next_vals: &C::ValidatorSet,
@@ -101,14 +122,20 @@ fn verify_single_inner<H, C, L>(
 ) -> Result<(), Error>
 where
     H: Header,
-    C: ProvableCommit,
+    C: ProvableCommit<V>,
     L: TrustThreshold,
+    V: Validator,
 {
     // validate the untrusted header against its commit, vals, and next_vals
     let untrusted_header = untrusted_sh.header();
     let untrusted_commit = untrusted_sh.commit();
 
-    validate(untrusted_sh, untrusted_vals, untrusted_next_vals)?;
+    validate(
+        untrusted_sh.header(),
+        untrusted_sh.commit(),
+        untrusted_vals,
+        Some(untrusted_next_vals),
+    )?;
 
     // ensure the new height is higher.
     // if its +1, ensure the vals are correct.
@@ -134,24 +161,38 @@ where
             let trusted_vals_hash = trusted_header.next_validators_hash();
             let untrusted_vals_hash = untrusted_header.validators_hash();
             if trusted_vals_hash != untrusted_vals_hash {
-                // TODO: more specific error
-                // ie. differentiate from when next_vals.hash() doesnt
-                // match the header hash ...
-                return Err(Kind::InvalidNextValidatorSet {
-                    header_next_val_hash: trusted_vals_hash,
-                    next_val_hash: untrusted_vals_hash,
+                return Err(Kind::InvalidValidatorSet {
+                    header_val_hash: untrusted_vals_hash,
+                    expected_val_hash: trusted_vals_hash,
                 }
                 .into());
             }
         }
         Ordering::Greater => {
-            let trusted_vals = trusted_state.validators();
-            verify_commit_trusting(
-                trusted_vals,
-                untrusted_header,
-                untrusted_commit,
-                trust_threshold,
-            )?;
+            let trusted_validators = trusted_state.validators();
+            // We need to intersect trusted validators with untrusted validator because
+            // only if our previously trusted validators are part of validator set for this
+            // height, its vote can be considered valid.
+            let common_vals = trusted_validators.intersect(untrusted_vals);
+
+            // Minimum trusted voting power required to consider this header as trusted
+            let minimum_trusted_voting_power_required =
+                trust_threshold.minimum_power_to_be_trusted(trusted_validators.total_power());
+
+            // Sum of voting power of validators who has legitimately signed this header
+            let signed_power =
+                untrusted_commit.voting_power_in(untrusted_header.chain_id(), &common_vals)?;
+
+            // check the signers' total voting powers are greater than or equal to minimum
+            // trusted voting power required.
+            if signed_power < minimum_trusted_voting_power_required {
+                return Err(Kind::InsufficientSignedVotingPower {
+                    total: trusted_validators.total_power(),
+                    signed: signed_power,
+                    trust_threshold: format!("{:?}", trust_threshold),
+                }
+                .into());
+            }
         }
     }
 
@@ -161,32 +202,35 @@ where
 
 /// Validate the validators, next validators, against the signed header.
 /// This is equivalent to validateSignedHeaderAndVals in the spec.
-pub fn validate<C, H>(
-    signed_header: &SignedHeader<C, H>,
+fn validate<C, H, V>(
+    header: &H,
+    commit: &C,
     vals: &C::ValidatorSet,
-    next_vals: &C::ValidatorSet,
+    possible_next_vals: Option<&C::ValidatorSet>,
 ) -> Result<(), Error>
 where
-    C: ProvableCommit,
+    C: ProvableCommit<V>,
     H: Header,
+    V: Validator,
 {
-    let header = signed_header.header();
-    let commit = signed_header.commit();
-
     // ensure the header validator hashes match the given validators
     if header.validators_hash() != vals.hash() {
         return Err(Kind::InvalidValidatorSet {
             header_val_hash: header.validators_hash(),
-            val_hash: vals.hash(),
+            expected_val_hash: vals.hash(),
         }
         .into());
     }
-    if header.next_validators_hash() != next_vals.hash() {
-        return Err(Kind::InvalidNextValidatorSet {
-            header_next_val_hash: header.next_validators_hash(),
-            next_val_hash: next_vals.hash(),
+
+    if possible_next_vals.is_some() {
+        let next_vals = possible_next_vals.unwrap();
+        if header.next_validators_hash() != next_vals.hash() {
+            return Err(Kind::InvalidNextValidatorSet {
+                header_next_val_hash: header.next_validators_hash(),
+                expected_next_val_hash: next_vals.hash(),
+            }
+            .into());
         }
-        .into());
     }
 
     // ensure the header matches the commit
@@ -208,10 +252,11 @@ where
 /// NOTE: These validators are expected to be the correct validators for the commit,
 /// but since we're using voting_power_in, we can't actually detect if there's
 /// votes from validators not in the set.
-pub fn verify_commit_full<H, C>(vals: &C::ValidatorSet, header: &H, commit: &C) -> Result<(), Error>
+fn verify_commit_full<H, C, V>(vals: &C::ValidatorSet, header: &H, commit: &C) -> Result<(), Error>
 where
-    C: ProvableCommit,
+    C: ProvableCommit<V>,
     H: Header,
+    V: Validator,
 {
     let total_power = vals.total_power();
     let signed_power = commit.voting_power_in(header.chain_id(), vals)?;
@@ -228,48 +273,18 @@ where
     Ok(())
 }
 
-/// Verify that +1/3 of the given validator set signed this commit.
-/// NOTE the given validators do not necessarily correspond to the validator set for this commit,
-/// but there may be some intersection. The trust_level parameter allows clients to require more
-/// than +1/3 by implementing the TrustLevel trait accordingly.
-pub fn verify_commit_trusting<H, C, L>(
-    validators: &C::ValidatorSet,
-    header: &H,
-    commit: &C,
-    trust_level: L,
-) -> Result<(), Error>
-where
-    C: ProvableCommit,
-    L: TrustThreshold,
-    H: Header,
-{
-    let total_power = validators.total_power();
-    let signed_power = commit.voting_power_in(header.chain_id(), validators)?;
-
-    // check the signers account for +1/3 of the voting power (or more if the
-    // trust_level requires so)
-    if !trust_level.is_enough_power(signed_power, total_power) {
-        return Err(Kind::InsufficientVotingPower {
-            total: total_power,
-            signed: signed_power,
-            trust_treshold: format!("{:?}", trust_level),
-        }
-        .into());
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod tests {
     use crate::types::block::traits::header::Header;
+    use crate::types::hash::{Algorithm, Hash};
     use crate::types::mocks::{fixed_hash, MockCommit, MockHeader, MockSignedHeader, MockValSet};
     use crate::types::traits::validator_set::ValidatorSet;
     use crate::verification::{is_within_trust_period, verify_single_inner};
-    use crate::{TrustThresholdFraction, TrustedState};
+    use crate::{validate_initial_signed_header_and_valset, TrustThresholdFraction, TrustedState};
+    use rand::Rng;
     use std::time::{Duration, SystemTime};
 
-    type MockState = TrustedState<MockCommit, MockHeader>;
+    type MockState = TrustedState<MockCommit<usize>, MockHeader, usize>;
 
     #[derive(Clone)]
     struct ValsAndCommit {
@@ -287,7 +302,9 @@ mod tests {
     }
 
     // create the next state with the given vals and commit.
-    fn next_state(vals_and_commit: ValsAndCommit) -> (MockSignedHeader, MockValSet, MockValSet) {
+    fn next_state(
+        vals_and_commit: ValsAndCommit,
+    ) -> (MockSignedHeader, MockValSet<usize>, MockValSet<usize>) {
         let time = init_time() + Duration::new(10, 0);
         let height = 10;
         let vals = MockValSet::new(vals_and_commit.vals_vec);
@@ -320,7 +337,7 @@ mod tests {
 
     // make a state with the given vals and commit and ensure we get the expected error kind.
     fn assert_single_err(
-        ts: &TrustedState<MockCommit, MockHeader>,
+        ts: &TrustedState<MockCommit<usize>, MockHeader, usize>,
         vals_and_commit: ValsAndCommit,
         err_str: String,
     ) {
@@ -365,7 +382,7 @@ mod tests {
             ts,
             invalid_vac,
             String::from(
-                "signed voting power (0) do not account for +2/3 of the total voting power: (1)",
+                "signed voting power (0) is too small fraction of total trusted voting power: (1), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }",
             ),
         );
     }
@@ -393,15 +410,15 @@ mod tests {
 
         //*****
         // Err
-        let err = "signed voting power (0) is too small fraction of total voting power: (1), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
-
-        // 0% overlap - new val set without the original signer
-        vac = ValsAndCommit::new(vec![1], vec![1]);
-        assert_single_err(ts, vac, err.clone().into());
+        let err = "signed voting power (0) is too small fraction of total trusted voting power: (1), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap - val set contains original signer, but they didn't sign
         vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![1, 2, 3]);
         assert_single_err(ts, vac, err.into());
+
+        // 0% overlap - new val set without the original signer
+        vac = ValsAndCommit::new(vec![1], vec![1]);
+        assert_single_err(ts, vac, err.clone().into());
     }
 
     // valid commit and data, starting with 2 validators.
@@ -422,7 +439,7 @@ mod tests {
 
         //*************
         // Err
-        let err = "signed voting power (1) is too small fraction of total voting power: (2), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (1) is too small fraction of total trusted voting power: (2), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 50% overlap (one original signer still present)
         vac = ValsAndCommit::new(vec![0], vec![0]);
@@ -433,7 +450,7 @@ mod tests {
 
         //*************
         // Err
-        let err = "signed voting power (0) is too small fraction of total voting power: (2), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (0) is too small fraction of total trusted voting power: (2), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap (neither original signer still present)
         vac = ValsAndCommit::new(vec![2], vec![2]);
@@ -462,7 +479,7 @@ mod tests {
 
         //*************
         // Err
-        let err = "signed voting power (2) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (2) is too small fraction of total trusted voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 66% overlap (two original signers still present)
         vac = ValsAndCommit::new(vec![0, 1], vec![0, 1]);
@@ -471,7 +488,7 @@ mod tests {
         vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![1, 2, 3]);
         assert_single_err(ts, vac, err.clone().into());
 
-        let err = "signed voting power (1) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (1) is too small fraction of total trusted voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 33% overlap (one original signer still present)
         vac = ValsAndCommit::new(vec![0], vec![0]);
@@ -480,11 +497,11 @@ mod tests {
         vac = ValsAndCommit::new(vec![0, 3], vec![0, 3]);
         assert_single_err(ts, vac, err.clone().into());
 
-        // 0% overlap (neither original signer still present)
-        vac = ValsAndCommit::new(vec![3], vec![2]);
-        assert_single_err(ts, vac, err.into());
+        let err = "signed voting power (0) is too small fraction of total trusted voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
-        let err = "signed voting power (0) is too small fraction of total voting power: (3), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        // 0% overlap (neither original signer still present)
+        vac = ValsAndCommit::new(vec![3], vec![0, 1, 2]);
+        assert_single_err(ts, vac, err.into());
 
         // 0% overlap (original signer is still in val set but not in commit)
         vac = ValsAndCommit::new(vec![0, 3, 4, 5], vec![3, 4, 5]);
@@ -506,7 +523,7 @@ mod tests {
         let vac = ValsAndCommit::new(vec![0, 1, 2, 4], vec![0, 1, 2, 4]);
         assert_single_ok(ts, vac);
 
-        let err = "signed voting power (2) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (2) is too small fraction of total trusted voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 50% overlap (two signers still present)
         let vac = ValsAndCommit::new(vec![0, 1], vec![0, 1]);
@@ -515,13 +532,13 @@ mod tests {
         let vac = ValsAndCommit::new(vec![0, 1, 4, 5], vec![0, 1, 4, 5]);
         assert_single_err(ts, vac, err.into());
 
-        let err = "signed voting power (1) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (1) is too small fraction of total trusted voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 25% overlap (one signer still present)
         let vac = ValsAndCommit::new(vec![0, 4, 5, 6], vec![0, 4, 5, 6]);
         assert_single_err(ts, vac, err.into());
 
-        let err = "signed voting power (0) is too small fraction of total voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
+        let err = "signed voting power (0) is too small fraction of total trusted voting power: (4), threshold: TrustThresholdFraction { numerator: 2, denominator: 3 }";
 
         // 0% overlap (none of the signers present)
         let vac = ValsAndCommit::new(vec![4, 5, 6], vec![4, 5, 6]);
@@ -530,6 +547,83 @@ mod tests {
         // 0% overlap (one signer present in val set but does not commit)
         let vac = ValsAndCommit::new(vec![3, 4, 5, 6], vec![4, 5, 6]);
         assert_single_err(ts, vac, err.into());
+    }
+
+    #[test]
+    fn test_validate_initial_signed_header_and_valset() {
+        // All validators have signed commit, Ok
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 2, 3]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        assert!(validate_initial_signed_header_and_valset(&un_sh, &un_vals).is_ok());
+
+        // 3/4 validators have signed commit, Ok
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 2]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        assert!(validate_initial_signed_header_and_valset(&un_sh, &un_vals).is_ok());
+
+        // 1/2 validators have signed commit, Error
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap().to_string(),
+            "signed voting power (2) do not account for +2/3 of the total voting power: (4)"
+        );
+
+        // invalid commits are ignored and same error is returned
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 5, 6, 7]);
+        let (un_sh, un_vals, _) = next_state(vac);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert_eq!(
+            res.err().unwrap().to_string(),
+            "signed voting power (2) do not account for +2/3 of the total voting power: (4)"
+        );
+
+        // Header's hash should be consistent
+        let mut rng = rand::thread_rng();
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 5, 6, 7]);
+        let time = init_time() + Duration::new(10, 0);
+        let height = 10;
+        let un_vals = MockValSet::new(vac.vals_vec);
+        let header = MockHeader::new(height, time, un_vals.hash(), un_vals.hash());
+        let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen_range(0, 255)).collect();
+        let commit = MockCommit::new(
+            Hash::new(Algorithm::Sha256, random_bytes.as_slice()).unwrap(),
+            vac.commit_vec,
+        );
+        let un_sh = MockSignedHeader::new(commit, header);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert!(res
+            .err()
+            .unwrap()
+            .to_string()
+            .starts_with("header hash does not match the hash in the commit "));
+
+        // Validator's hash should be consistent
+        let mut rng = rand::thread_rng();
+        let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen_range(0, 255)).collect();
+        let vac = ValsAndCommit::new(vec![0, 1, 2, 3], vec![0, 1, 5, 6, 7]);
+        let time = init_time() + Duration::new(10, 0);
+        let height = 10;
+        let un_vals = MockValSet::new(vac.vals_vec);
+        let header = MockHeader::new(
+            height,
+            time,
+            Hash::new(Algorithm::Sha256, random_bytes.as_slice()).unwrap(),
+            un_vals.hash(),
+        );
+        let commit = MockCommit::new(header.hash(), vac.commit_vec);
+        let un_sh = MockSignedHeader::new(commit, header);
+        let res = validate_initial_signed_header_and_valset(&un_sh, &un_vals);
+        assert!(res.is_err());
+        assert!(res
+            .err()
+            .unwrap()
+            .to_string()
+            .starts_with("header's validator hash does not match actual validator hash"));
     }
 
     #[test]
