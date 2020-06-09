@@ -21,7 +21,7 @@ pub use types::block::commit::Commit;
 pub use types::trusted::TrustThresholdFraction;
 pub use types::trusted::TrustedState;
 // Validator data types
-pub use types::validator::Info as LightValidatorInfo;
+pub use types::validator::Info as LightValidator;
 pub use types::validator::Set as LightValidatorSet;
 // Time data type.
 pub use types::time::Time;
@@ -42,4 +42,6 @@ pub mod traits {
     pub use super::types::traits::trusted::TrustThreshold;
     // Provable commit trait implemented by LightSignedHeader
     pub use super::types::block::traits::commit::ProvableCommit;
+    // Validator trait implemented by LightValidator
+    pub use super::types::traits::validator::Validator;
 }
