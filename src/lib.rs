@@ -25,6 +25,8 @@ pub use types::validator::Info as LightValidator;
 pub use types::validator::Set as LightValidatorSet;
 // Time data type.
 pub use types::time::Time;
+// ClientId data type.
+pub use types::chain::Id;
 
 // Generic Function to call to validate a header
 pub use verification::verify_single;
