@@ -5,7 +5,7 @@ pub(crate) mod client;
 mod chain;
 pub(crate) mod hash;
 pub(crate) mod proposer_priority;
-mod pubkey;
+pub(crate) mod pubkey;
 pub(crate) mod signature;
 pub(crate) mod time;
 pub(crate) mod traits;

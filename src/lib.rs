@@ -47,3 +47,5 @@ pub mod traits {
     // Validator trait implemented by LightValidator
     pub use super::types::traits::validator::Validator;
 }
+
+pub use types::pubkey::PublicKey;
