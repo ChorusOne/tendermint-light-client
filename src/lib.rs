@@ -49,3 +49,4 @@ pub mod traits {
 }
 
 pub use types::pubkey::PublicKey;
+pub use types::account::Id;
