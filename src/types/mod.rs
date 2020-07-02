@@ -1,8 +1,8 @@
 pub(crate) mod account;
 mod amino;
 pub(crate) mod block;
-pub(crate) mod client;
 mod chain;
+pub(crate) mod client;
 pub(crate) mod hash;
 pub(crate) mod proposer_priority;
 pub(crate) mod pubkey;

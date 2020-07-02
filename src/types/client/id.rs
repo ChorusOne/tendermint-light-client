@@ -2,12 +2,12 @@
 
 use crate::errors::{Error, Kind};
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
+use std::convert::TryFrom;
 use std::{
     cmp::Ordering,
     fmt::{self, Debug, Display},
     str::{self, FromStr},
 };
-use std::convert::TryFrom;
 
 /// Maximum length of a `client::Id` name.
 pub const MAX_LENGTH: usize = 20;
