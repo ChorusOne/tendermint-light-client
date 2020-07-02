@@ -33,6 +33,8 @@ pub use types::account::Id as AccountId;
 pub use types::pubkey::PublicKey;
 // VotePower type
 pub use types::vote::power::Power as VotePower;
+// Enum encapsulating ed25519 and Secp256k1 signature types
+pub use types::signature::Signature;
 
 // Generic Function to call to validate a header
 pub use verification::verify_single;
