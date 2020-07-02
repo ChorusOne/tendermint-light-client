@@ -15,8 +15,8 @@ chrono = { version = "0.4.11", features = ["serde"] }
 serde_derive = "1.0"
 subtle = "2.2"
 thiserror = "1.0.19"
-signatory = { version = "0.20.0", features = ["ed25519", "ecdsa", "k256"], git = "https://github.com/ChorusOne/signatory.git", branch = "develop" }
-signatory-dalek = { version = "0.20.1", git = "https://github.com/ChorusOne/signatory.git", branch = "develop" }
+signatory = { version = "0.20.0", features = ["ed25519", "ecdsa", "k256"], git = "https://github.com/ChorusOne/signatory.git", tag = "v0.20.1" }
+signatory-dalek = { version = "0.20.1", git = "https://github.com/ChorusOne/signatory.git", tag = "v0.20.1" }
 ripemd160 = "0.8.0"
 serde_repr = "0.1.5"
 sha2 = { version = "0.8", default-features = false }
