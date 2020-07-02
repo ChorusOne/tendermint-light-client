@@ -5,9 +5,9 @@ use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
 use std::{
     cmp::Ordering,
     fmt::{self, Debug, Display},
-    hash::{Hash, Hasher},
     str::{self, FromStr},
 };
+use std::convert::TryFrom;
 
 /// Maximum length of a `client::Id` name.
 pub const MAX_LENGTH: usize = 20;
@@ -55,9 +55,11 @@ impl Display for Id {
     }
 }
 
-impl<'a> From<&'a str> for Id {
-    fn from(s: &str) -> Id {
-        Self::from_str(s).unwrap()
+impl<'a> TryFrom<&'a str> for Id {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Self::from_str(value)
     }
 }
 
