@@ -49,4 +49,5 @@ pub mod traits {
 }
 
 pub use types::pubkey::PublicKey;
+pub use types::signature::Signature;
 pub use types::account::Id;
