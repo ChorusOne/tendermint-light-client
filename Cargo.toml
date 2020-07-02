@@ -1,6 +1,7 @@
+
 [package]
 name = "tendermint_light_client"
-version = "0.2.0"
+version = "0.2.5"
 authors = ["Parth Desai <desaiparth08@gmail.com>", "Joe Bowman <joe@chorus.one>"]
 edition = "2018"
 
@@ -14,8 +15,8 @@ chrono = { version = "0.4.11", features = ["serde"] }
 serde_derive = "1.0"
 subtle = "2.2"
 thiserror = "1.0.19"
-signatory = { version = "0.19.0", features = ["ed25519", "ecdsa", "k256"], git = "https://github.com/joe-bowman/signatory.git", branch = "develop" }
-signatory-dalek = { version = "0.19.1", git = "https://github.com/joe-bowman/signatory.git", branch = "develop" }
+signatory = { version = "0.20.0", features = ["ed25519", "ecdsa", "k256"], git = "https://github.com/joe-bowman/signatory.git", branch = "0.20.1" }
+signatory-dalek = { version = "0.20.1", git = "https://github.com/joe-bowman/signatory.git", branch = "0.20.1" }
 ripemd160 = "0.8.0"
 serde_repr = "0.1.5"
 sha2 = { version = "0.8", default-features = false }

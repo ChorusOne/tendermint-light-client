@@ -25,6 +25,14 @@ pub use types::validator::Info as LightValidator;
 pub use types::validator::Set as LightValidatorSet;
 // Time data type.
 pub use types::time::Time;
+// ClientId data type.
+pub use types::client::Id as ClientId;
+// AccountId data type.
+pub use types::account::Id as AccountId;
+// PublicKey data type.
+pub use types::pubkey::PublicKey;
+// VotePower type
+pub use types::vote::power::Power as VotePower;
 
 // Generic Function to call to validate a header
 pub use verification::verify_single;
