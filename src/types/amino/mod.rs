@@ -228,7 +228,7 @@ impl TryFrom<&vote::Vote> for Vote {
             timestamp: Some(TimeMsg::from(vote.timestamp)),
             validator_address: vote.validator_address.as_bytes().to_vec(),
             validator_index: possible_validator_index.unwrap(),
-            signature: vote.signature.clone(),
+            signature: vote.signature.raw(),
         })
     }
 }
