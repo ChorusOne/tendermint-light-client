@@ -23,4 +23,4 @@ resolve version conflict of `ed25519-dalek` between `signatory` crate and `subst
 
 ## How it works?
 Tendermint light client is implemented according to the specification found [here](https://docs.tendermint.com/master/spec/consensus/light-client/verification.html).
-Since this light client runs in a constrained environment without access to I/O, the bisection part of the specification is not implemented, instead only `verifySingle` function that operates only on the local trusted state. 
+Since this light client runs in a constrained environment without access to I/O, the bisection part of the specification is not implemented, instead only `verifySingle` function that operates on the local trusted state is implemented to validate incoming headers.
