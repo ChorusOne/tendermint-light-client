@@ -105,6 +105,7 @@ impl From<secp256k1::PublicKey> for PublicKey {
 }
 
 /// Public key roles used in Tendermint networks
+#[allow(dead_code)] // Used in tests
 #[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
 pub enum TendermintKey {
     /// User signing keys used for interacting with accounts in the state machine
@@ -116,6 +117,7 @@ pub enum TendermintKey {
 
 impl TendermintKey {
     /// Create a new account key from a `PublicKey`
+    #[allow(dead_code)] // Future use
     pub fn new_account_key(public_key: PublicKey) -> Result<TendermintKey, Error> {
         match public_key {
             PublicKey::Ed25519(_) | PublicKey::Secp256k1(_) => {
@@ -125,6 +127,7 @@ impl TendermintKey {
     }
 
     /// Create a new consensus key from a `PublicKey`
+    #[allow(dead_code)] // Future use
     pub fn new_consensus_key(public_key: PublicKey) -> Result<TendermintKey, Error> {
         match public_key {
             PublicKey::Ed25519(_) => Ok(TendermintKey::AccountKey(public_key)),

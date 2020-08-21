@@ -12,7 +12,7 @@ use crate::types::proposer_priority::ProposerPriority;
 use crate::types::traits::validator::Validator;
 use crate::types::traits::validator_set::ValidatorSet;
 use crate::types::vote::power::Power;
-use crate::{SignedHeader, TrustedState};
+use crate::SignedHeader;
 use std::collections::HashSet;
 use std::iter::FromIterator;
 use std::str::FromStr;
@@ -34,10 +34,6 @@ impl MockHeader {
             vals,
             next_vals,
         }
-    }
-
-    pub fn set_time(&mut self, new_time: SystemTime) {
-        self.time = new_time
     }
 }
 
@@ -75,7 +71,7 @@ impl Validator for usize {
         *self as u64
     }
 
-    fn verify_signature(&self, sign_bytes: &[u8], signature: &[u8]) -> bool {
+    fn verify_signature(&self, _sign_bytes: &[u8], _signature: &[u8]) -> bool {
         unimplemented!()
     }
 
@@ -123,7 +119,7 @@ where
         self.vals.len() as u64
     }
 
-    fn validator(&self, val_id: Id) -> Option<V> {
+    fn validator(&self, _val_id: Id) -> Option<V> {
         unimplemented!()
     }
 
@@ -173,7 +169,7 @@ where
     // just the intersection
     fn voting_power_in(
         &self,
-        chain_id: chain::Id,
+        _chain_id: chain::Id,
         vals: &Self::ValidatorSet,
     ) -> Result<u64, Error> {
         let mut power = 0;
@@ -202,7 +198,6 @@ where
 }
 
 pub type MockSignedHeader = SignedHeader<MockCommit<usize>, MockHeader>;
-pub type MockTrustedState = TrustedState<MockCommit<usize>, MockHeader, usize>;
 
 pub fn fixed_hash() -> Hash {
     Hash::new(Algorithm::Sha256, &Sha256::digest(&[5])).unwrap()
