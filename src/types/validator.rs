@@ -10,7 +10,11 @@ use crate::types::pubkey::PublicKey;
 use crate::types::traits;
 use crate::types::traits::validator::Validator;
 use crate::types::vote::power::Power as VotePower;
+use core::fmt;
 use prost_amino_derive::Message;
+use serde::de::{SeqAccess, Visitor};
+use serde::export::Formatter;
+use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signatory::{
     ed25519,
@@ -19,10 +23,6 @@ use signatory::{
 use signatory_dalek::Ed25519Verifier;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
-use serde::ser::SerializeSeq;
-use serde::de::{Visitor, SeqAccess};
-use serde::export::Formatter;
-use core::fmt;
 use std::marker::PhantomData;
 
 /// Validator set contains a vector of validators
@@ -34,32 +34,50 @@ where
     validators: Vec<V>,
 }
 
-impl<V> Serialize for Set<V> where V: Validator {
-    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error> where
-        S: Serializer {
+impl<V> Serialize for Set<V>
+where
+    V: Validator,
+{
+    fn serialize<S>(&self, serializer: S) -> Result<<S as Serializer>::Ok, <S as Serializer>::Error>
+    where
+        S: Serializer,
+    {
         let mut seq = serializer.serialize_seq(Some(self.validators.len()))?;
         for validator in &self.validators {
-         seq.serialize_element(validator)?;
+            seq.serialize_element(validator)?;
         }
         seq.end()
     }
 }
 
-impl<'de, V> Deserialize<'de> for Set<V> where V: Validator {
-    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error> where
-        D: Deserializer<'de> {
-        struct SetVisitor<V> where V: Validator{
-            _phantom_data: PhantomData<V>
+impl<'de, V> Deserialize<'de> for Set<V>
+where
+    V: Validator,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, <D as Deserializer<'de>>::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct SetVisitor<V>
+        where
+            V: Validator,
+        {
+            _phantom_data: PhantomData<V>,
         };
-        impl<'de, V> Visitor<'de> for SetVisitor<V> where V: Validator {
+        impl<'de, V> Visitor<'de> for SetVisitor<V>
+        where
+            V: Validator,
+        {
             type Value = Set<V>;
 
             fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
                 formatter.write_str("sequence of objects implementing Validator trait")
             }
 
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, <A as SeqAccess<'de>>::Error> where
-                A: SeqAccess<'de> {
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, <A as SeqAccess<'de>>::Error>
+            where
+                A: SeqAccess<'de>,
+            {
                 let mut validators: Vec<V> = vec![];
                 while let Some(value) = seq.next_element()? {
                     validators.push(value);
@@ -68,7 +86,9 @@ impl<'de, V> Deserialize<'de> for Set<V> where V: Validator {
             }
         }
 
-        deserializer.deserialize_seq(SetVisitor{_phantom_data: PhantomData})
+        deserializer.deserialize_seq(SetVisitor {
+            _phantom_data: PhantomData,
+        })
     }
 }
 

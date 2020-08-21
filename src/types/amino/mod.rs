@@ -152,16 +152,6 @@ pub enum SignedMsgType {
 }
 
 impl SignedMsgType {
-    pub fn to_u32(self) -> u32 {
-        match self {
-            // Votes
-            SignedMsgType::PreVote => 0x01,
-            SignedMsgType::PreCommit => 0x02,
-            // Proposals
-            SignedMsgType::Proposal => 0x20,
-        }
-    }
-
     #[allow(dead_code)]
     fn from(data: u32) -> Result<SignedMsgType, DecodeError> {
         match data {
@@ -191,18 +181,6 @@ pub struct Vote {
     pub validator_index: i64,
     #[prost_amino(bytes)]
     pub signature: Vec<u8>,
-}
-
-impl Vote {
-    fn msg_type(&self) -> Option<SignedMsgType> {
-        if self.vote_type == SignedMsgType::PreVote.to_u32() {
-            Some(SignedMsgType::PreVote)
-        } else if self.vote_type == SignedMsgType::PreCommit.to_u32() {
-            Some(SignedMsgType::PreCommit)
-        } else {
-            None
-        }
-    }
 }
 
 impl TryFrom<&vote::Vote> for Vote {
