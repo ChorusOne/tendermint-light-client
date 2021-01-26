@@ -17,9 +17,9 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signatory::{
     ed25519,
-    signature::{Signature, Verifier},
+    signature::{Signature},
 };
-use signatory_dalek::Ed25519Verifier;
+use ed25519_dalek::Verifier;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -183,9 +183,10 @@ impl Validator for Info {
     /// public key.
     fn verify_signature(&self, sign_bytes: &[u8], signature: &[u8]) -> bool {
         if let Some(pk) = &self.pub_key.ed25519() {
-            let verifier = Ed25519Verifier::from(pk);
-            if let Ok(sig) = ed25519::Signature::from_bytes(signature) {
-                return verifier.verify(sign_bytes, &sig).is_ok();
+            if let Ok(pk) = ed25519_dalek::PublicKey::from_bytes(&pk.into_bytes()) {
+                if let Ok(sig) = ed25519::Signature::from_bytes(signature) {
+                    return pk.verify(sign_bytes, &sig).is_ok()
+                }
             }
         }
         false

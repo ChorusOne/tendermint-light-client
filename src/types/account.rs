@@ -2,7 +2,7 @@ use crate::errors::{Error, Kind};
 use ripemd160::Ripemd160;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sha2::{Digest, Sha256};
-use signatory::{ecdsa::curve::secp256k1, ed25519};
+use signatory::{ecdsa::secp256k1, ed25519};
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;

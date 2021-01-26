@@ -3,7 +3,7 @@
 use crate::errors::{Error, Kind};
 use anomaly::fail;
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
-use signatory::{ecdsa::curve::secp256k1, ed25519};
+use signatory::{ecdsa::secp256k1, ed25519};
 use std::{
     fmt::{self, Display},
     ops::Deref,
@@ -37,9 +37,10 @@ pub enum PublicKey {
 impl PublicKey {
     /// From raw secp256k1 public key bytes
     pub fn from_raw_secp256k1(bytes: &[u8]) -> Option<PublicKey> {
-        Some(PublicKey::Secp256k1(secp256k1::PublicKey::from_bytes(
-            bytes,
-        )?))
+        match secp256k1::PublicKey::from_bytes(bytes) {
+            Ok(pk) => Some(PublicKey::Secp256k1(pk)),
+            Err(_) => None
+        }
     }
 
     /// From raw Ed25519 public key bytes
@@ -236,15 +237,14 @@ where
 
 fn deserialize_secp256k1_base64<'de, D>(
     deserializer: D,
-) -> Result<signatory::ecdsa::curve::secp256k1::PublicKey, D::Error>
+) -> Result<signatory::ecdsa::secp256k1::PublicKey, D::Error>
 where
     D: Deserializer<'de>,
 {
     let bytes = base64::decode(String::deserialize(deserializer)?.as_bytes())
         .map_err(|e| D::Error::custom(format!("{}", e)))?;
 
-    secp256k1::PublicKey::from_bytes(&bytes)
-        .ok_or_else(|| D::Error::custom("invalid secp256k1 key"))
+    secp256k1::PublicKey::from_bytes(&bytes).or_else(|_| Err(D::Error::custom("invalid secp256k1 key")))
 }
 
 #[cfg(test)]
