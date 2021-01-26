@@ -2,7 +2,6 @@
 use base64;
 use core::fmt;
 use serde::de::Visitor;
-use serde::export::Formatter;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 #[derive(PartialEq, Debug, Clone)]
@@ -32,7 +31,7 @@ impl<'de> Deserialize<'de> for Signature {
         impl<'de> Visitor<'de> for SignatureVisitor {
             type Value = Signature;
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("base64 encoded array of bytes")
             }
 

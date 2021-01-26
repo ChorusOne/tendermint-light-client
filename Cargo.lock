@@ -628,7 +628,7 @@ dependencies = [
 [[package]]
 name = "signatory"
 version = "0.20.0"
-source = "git+https://github.com/ChorusOne/signatory.git?branch=develop#144add7d67a9efb3911d7b9d346a1be77a1cdd91"
+source = "git+https://github.com/ChorusOne/signatory.git?tag=v0.20.1#144add7d67a9efb3911d7b9d346a1be77a1cdd91"
 dependencies = [
  "ecdsa",
  "ed25519",
@@ -641,7 +641,7 @@ dependencies = [
 [[package]]
 name = "signatory-dalek"
 version = "0.20.1"
-source = "git+https://github.com/ChorusOne/signatory.git?branch=develop#144add7d67a9efb3911d7b9d346a1be77a1cdd91"
+source = "git+https://github.com/ChorusOne/signatory.git?tag=v0.20.1#144add7d67a9efb3911d7b9d346a1be77a1cdd91"
 dependencies = [
  "digest 0.8.1",
  "ed25519-dalek",

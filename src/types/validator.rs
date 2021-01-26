@@ -13,7 +13,6 @@ use crate::types::vote::power::Power as VotePower;
 use core::fmt;
 use prost_amino_derive::Message;
 use serde::de::{SeqAccess, Visitor};
-use serde::export::Formatter;
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use signatory::{
@@ -70,7 +69,7 @@ where
         {
             type Value = Set<V>;
 
-            fn expecting(&self, formatter: &mut Formatter) -> fmt::Result {
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
                 formatter.write_str("sequence of objects implementing Validator trait")
             }
 
