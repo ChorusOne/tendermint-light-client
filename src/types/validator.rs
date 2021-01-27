@@ -183,10 +183,8 @@ impl Validator for Info {
     /// public key.
     fn verify_signature(&self, sign_bytes: &[u8], signature: &[u8]) -> bool {
         if let Some(pk) = &self.pub_key.ed25519() {
-            if let Ok(pk) = ed25519_dalek::PublicKey::from_bytes(&pk.into_bytes()) {
-                if let Ok(sig) = ed25519::Signature::from_bytes(signature) {
-                    return pk.verify(sign_bytes, &sig).is_ok()
-                }
+            if let Ok(sig) = ed25519::Signature::from_bytes(signature) {
+                return pk.verify(sign_bytes, &sig).is_ok()
             }
         }
         false
@@ -259,20 +257,14 @@ mod tests {
     use crate::types::traits::validator_set::ValidatorSet;
     use crate::types::validator::{Info, Set};
     use crate::types::vote::power::Power;
-    use rand::Rng;
-    use signatory::ed25519;
-    use std::convert::TryInto;
 
     fn generate_random_validators(number_of_validators: usize, vote_power: u64) -> Vec<Info> {
         let mut vals: Vec<Info> = vec![];
-
         let mut rng = rand::thread_rng();
 
         for _ in 0..number_of_validators {
-            let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen_range(0, 255)).collect();
-            let pub_key = Ed25519(ed25519::PublicKey(
-                random_bytes.as_slice().try_into().unwrap(),
-            ));
+            let keypair: ed25519_dalek::Keypair = ed25519_dalek::Keypair::generate(&mut rng);
+            let pub_key = Ed25519(keypair.public);
             vals.push(Info::new(pub_key, Power::new(vote_power)));
         }
 
