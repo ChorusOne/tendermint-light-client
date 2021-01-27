@@ -15,11 +15,8 @@ use prost_amino_derive::Message;
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use signatory::{
-    ed25519,
-    signature::{Signature},
-};
-use ed25519_dalek::Verifier;
+use ed25519_dalek::{Signature, Verifier};
+use std::convert::TryFrom;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -183,7 +180,7 @@ impl Validator for Info {
     /// public key.
     fn verify_signature(&self, sign_bytes: &[u8], signature: &[u8]) -> bool {
         if let Some(pk) = &self.pub_key.ed25519() {
-            if let Ok(sig) = ed25519::Signature::from_bytes(signature) {
+            if let Ok(sig) = Signature::try_from(signature) {
                 return pk.verify(sign_bytes, &sig).is_ok()
             }
         }

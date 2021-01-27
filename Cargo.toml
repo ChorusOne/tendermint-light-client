@@ -16,7 +16,8 @@ chrono = { version = "0.4.11", features = ["serde"] }
 serde_derive = "1.0"
 subtle = "2.2"
 thiserror = "1.0.19"
-signatory = { version = "0.22.0", features = ["ed25519", "ecdsa", "k256"] }
+k256 = { version = "0.7.2", features = ["ecdsa"] }
+elliptic-curve = "0.8.4"
 ed25519-dalek = "1.0.1"
 ripemd160 = "0.8.0"
 serde_repr = "0.1.5"

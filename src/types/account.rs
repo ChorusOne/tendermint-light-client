@@ -2,12 +2,12 @@ use crate::errors::{Error, Kind};
 use ripemd160::Ripemd160;
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use sha2::{Digest, Sha256};
-use signatory::{ecdsa::secp256k1};
 use std::fmt;
 use std::fmt::{Debug, Display};
 use std::str::FromStr;
 use subtle::ConstantTimeEq;
 use subtle_encoding::hex;
+use k256::EncodedPoint as Secp256k1;
 
 const LENGTH: usize = 20;
 
@@ -56,8 +56,8 @@ impl Debug for Id {
 }
 
 // RIPEMD160(SHA256(pk))
-impl From<secp256k1::PublicKey> for Id {
-    fn from(pk: secp256k1::PublicKey) -> Id {
+impl From<Secp256k1> for Id {
+    fn from(pk: Secp256k1) -> Id {
         let sha_digest = Sha256::digest(pk.as_bytes());
         let ripemd_digest = Ripemd160::digest(&sha_digest[..]);
         let mut bytes = [0u8; LENGTH];
