@@ -251,9 +251,11 @@ impl From<&Info> for InfoHashable {
 #[cfg(test)]
 mod tests {
     use crate::types::pubkey::PublicKey::Ed25519;
-    use crate::types::traits::validator_set::ValidatorSet;
+    use crate::types::traits::{validator_set::ValidatorSet, validator::Validator};
     use crate::types::validator::{Info, Set};
     use crate::types::vote::power::Power;
+    use crate::types::pubkey::PublicKey;
+    use subtle_encoding::hex;
 
     fn generate_random_validators(number_of_validators: usize, vote_power: u64) -> Vec<Info> {
         let mut vals: Vec<Info> = vec![];
@@ -313,5 +315,24 @@ mod tests {
         let intersection = first_validator_set.intersect(&second_validator_set);
         assert_eq!(intersection.number_of_validators(), 0);
         assert_eq!(intersection.total_power(), 0);
+    }
+
+    #[test]
+    fn test_validate_signature() {
+        let pk_bytes = hex::decode("330b745d9da896f6f89f288633d25b4608d53c0a03f53336c5b03713f1a95559").unwrap();
+        let signed_bytes = hex::decode("f7d9e1b08c814154f60760e9cb7cd3c3618743f665b7af1661e9dbbab3ee005d7a4314fb992cade8a048bca5b5d27170450ca5ce87cfffb36d43a95d34b62c00").unwrap();
+
+        let pub_key = PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let info = Info::new(pub_key, Power::new(0));
+
+        assert_eq!(
+            info.verify_signature("test message".as_bytes(), &signed_bytes),
+            true
+        );
+
+        assert_eq!(
+            info.verify_signature("wrong test message".as_bytes(), &signed_bytes),
+            false
+        );
     }
 }
