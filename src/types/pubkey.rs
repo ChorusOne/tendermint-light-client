@@ -3,7 +3,6 @@
 use crate::errors::{Error, Kind};
 use anomaly::fail;
 use serde::{de::Error as _, Deserialize, Deserializer, Serialize, Serializer};
-use signatory::{ecdsa::curve::secp256k1, ed25519};
 use std::{
     fmt::{self, Display},
     ops::Deref,
@@ -11,11 +10,12 @@ use std::{
 };
 use subtle_encoding::base64;
 use subtle_encoding::{bech32, hex};
+use k256::EncodedPoint as Secp256k1;
 
 /// Public keys allowed in Tendermint protocols
 #[derive(Serialize, Deserialize)]
 #[serde(tag = "type", content = "value")]
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PublicKey {
     /// Ed25519 keys
     #[serde(
@@ -23,7 +23,7 @@ pub enum PublicKey {
         serialize_with = "serialize_ed25519_base64",
         deserialize_with = "deserialize_ed25519_base64"
     )]
-    Ed25519(ed25519::PublicKey),
+    Ed25519(ed25519_dalek::PublicKey),
 
     /// Secp256k1 keys
     #[serde(
@@ -31,24 +31,28 @@ pub enum PublicKey {
         serialize_with = "serialize_secp256k1_base64",
         deserialize_with = "deserialize_secp256k1_base64"
     )]
-    Secp256k1(secp256k1::PublicKey),
+    Secp256k1(Secp256k1),
 }
 
 impl PublicKey {
     /// From raw secp256k1 public key bytes
     pub fn from_raw_secp256k1(bytes: &[u8]) -> Option<PublicKey> {
-        Some(PublicKey::Secp256k1(secp256k1::PublicKey::from_bytes(
-            bytes,
-        )?))
+        match Secp256k1::from_bytes(bytes) {
+            Ok(pk) => Some(PublicKey::Secp256k1(pk)),
+            Err(_) => None
+        }
     }
 
     /// From raw Ed25519 public key bytes
     pub fn from_raw_ed25519(bytes: &[u8]) -> Option<PublicKey> {
-        Some(PublicKey::Ed25519(ed25519::PublicKey::from_bytes(bytes)?))
+        match ed25519_dalek::PublicKey::from_bytes(bytes) {
+            Ok(pk) => Some(PublicKey::Ed25519(pk)),
+            Err(_) => None
+        }
     }
 
     /// Get Ed25519 public key
-    pub fn ed25519(self) -> Option<ed25519::PublicKey> {
+    pub fn ed25519(self) -> Option<ed25519_dalek::PublicKey> {
         match self {
             PublicKey::Ed25519(pk) => Some(pk),
             _ => None,
@@ -92,21 +96,21 @@ impl PublicKey {
     }
 }
 
-impl From<ed25519::PublicKey> for PublicKey {
-    fn from(pk: ed25519::PublicKey) -> PublicKey {
+impl From<ed25519_dalek::PublicKey> for PublicKey {
+    fn from(pk: ed25519_dalek::PublicKey) -> PublicKey {
         PublicKey::Ed25519(pk)
     }
 }
 
-impl From<secp256k1::PublicKey> for PublicKey {
-    fn from(pk: secp256k1::PublicKey) -> PublicKey {
+impl From<Secp256k1> for PublicKey {
+    fn from(pk: Secp256k1) -> PublicKey {
         PublicKey::Secp256k1(pk)
     }
 }
 
 /// Public key roles used in Tendermint networks
 #[allow(dead_code)] // Used in tests
-#[derive(Copy, Clone, Debug, Eq, PartialEq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum TendermintKey {
     /// User signing keys used for interacting with accounts in the state machine
     AccountKey(PublicKey),
@@ -202,7 +206,7 @@ impl<'de> Deserialize<'de> for Algorithm {
 }
 
 /// Serialize the bytes of an Ed25519 public key as Base64. Used for serializing JSON
-fn serialize_ed25519_base64<S>(pk: &ed25519::PublicKey, serializer: S) -> Result<S::Ok, S::Error>
+fn serialize_ed25519_base64<S>(pk: &ed25519_dalek::PublicKey, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -213,7 +217,7 @@ where
 
 /// Serialize the bytes of a secp256k1 ECDSA public key as Base64. Used for serializing JSON
 fn serialize_secp256k1_base64<S>(
-    pk: &secp256k1::PublicKey,
+    pk: &Secp256k1,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -224,27 +228,26 @@ where
         .serialize(serializer)
 }
 
-fn deserialize_ed25519_base64<'de, D>(deserializer: D) -> Result<ed25519::PublicKey, D::Error>
+fn deserialize_ed25519_base64<'de, D>(deserializer: D) -> Result<ed25519_dalek::PublicKey, D::Error>
 where
     D: Deserializer<'de>,
 {
     let bytes = base64::decode(String::deserialize(deserializer)?.as_bytes())
         .map_err(|e| D::Error::custom(format!("{}", e)))?;
 
-    ed25519::PublicKey::from_bytes(&bytes).ok_or_else(|| D::Error::custom("invalid ed25519 key"))
+    ed25519_dalek::PublicKey::from_bytes(&bytes).or_else(|_| Err(D::Error::custom("invalid ed25519 key")))
 }
 
 fn deserialize_secp256k1_base64<'de, D>(
     deserializer: D,
-) -> Result<signatory::ecdsa::curve::secp256k1::PublicKey, D::Error>
+) -> Result<Secp256k1, D::Error>
 where
     D: Deserializer<'de>,
 {
     let bytes = base64::decode(String::deserialize(deserializer)?.as_bytes())
         .map_err(|e| D::Error::custom(format!("{}", e)))?;
 
-    secp256k1::PublicKey::from_bytes(&bytes)
-        .ok_or_else(|| D::Error::custom("invalid secp256k1 key"))
+    Secp256k1::from_bytes(&bytes).or_else(|_| Err(D::Error::custom("invalid secp256k1 key")))
 }
 
 #[cfg(test)]

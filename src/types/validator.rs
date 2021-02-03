@@ -15,11 +15,8 @@ use prost_amino_derive::Message;
 use serde::de::{SeqAccess, Visitor};
 use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use signatory::{
-    ed25519,
-    signature::{Signature, Verifier},
-};
-use signatory_dalek::Ed25519Verifier;
+use ed25519_dalek::{Signature, Verifier};
+use std::convert::TryFrom;
 use std::collections::{HashMap, HashSet};
 use std::iter::FromIterator;
 use std::marker::PhantomData;
@@ -183,9 +180,8 @@ impl Validator for Info {
     /// public key.
     fn verify_signature(&self, sign_bytes: &[u8], signature: &[u8]) -> bool {
         if let Some(pk) = &self.pub_key.ed25519() {
-            let verifier = Ed25519Verifier::from(pk);
-            if let Ok(sig) = ed25519::Signature::from_bytes(signature) {
-                return verifier.verify(sign_bytes, &sig).is_ok();
+            if let Ok(sig) = Signature::try_from(signature) {
+                return pk.verify(sign_bytes, &sig).is_ok()
             }
         }
         false
@@ -255,23 +251,19 @@ impl From<&Info> for InfoHashable {
 #[cfg(test)]
 mod tests {
     use crate::types::pubkey::PublicKey::Ed25519;
-    use crate::types::traits::validator_set::ValidatorSet;
+    use crate::types::traits::{validator_set::ValidatorSet, validator::Validator};
     use crate::types::validator::{Info, Set};
     use crate::types::vote::power::Power;
-    use rand::Rng;
-    use signatory::ed25519;
-    use std::convert::TryInto;
+    use crate::types::pubkey::PublicKey;
+    use subtle_encoding::hex;
 
     fn generate_random_validators(number_of_validators: usize, vote_power: u64) -> Vec<Info> {
         let mut vals: Vec<Info> = vec![];
-
         let mut rng = rand::thread_rng();
 
         for _ in 0..number_of_validators {
-            let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen_range(0, 255)).collect();
-            let pub_key = Ed25519(ed25519::PublicKey(
-                random_bytes.as_slice().try_into().unwrap(),
-            ));
+            let keypair: ed25519_dalek::Keypair = ed25519_dalek::Keypair::generate(&mut rng);
+            let pub_key = Ed25519(keypair.public);
             vals.push(Info::new(pub_key, Power::new(vote_power)));
         }
 
@@ -323,5 +315,24 @@ mod tests {
         let intersection = first_validator_set.intersect(&second_validator_set);
         assert_eq!(intersection.number_of_validators(), 0);
         assert_eq!(intersection.total_power(), 0);
+    }
+
+    #[test]
+    fn test_validate_signature() {
+        let pk_bytes = hex::decode("330b745d9da896f6f89f288633d25b4608d53c0a03f53336c5b03713f1a95559").unwrap();
+        let signed_bytes = hex::decode("f7d9e1b08c814154f60760e9cb7cd3c3618743f665b7af1661e9dbbab3ee005d7a4314fb992cade8a048bca5b5d27170450ca5ce87cfffb36d43a95d34b62c00").unwrap();
+
+        let pub_key = PublicKey::from_raw_ed25519(&pk_bytes).unwrap();
+        let info = Info::new(pub_key, Power::new(0));
+
+        assert_eq!(
+            info.verify_signature("test message".as_bytes(), &signed_bytes),
+            true
+        );
+
+        assert_eq!(
+            info.verify_signature("wrong test message".as_bytes(), &signed_bytes),
+            false
+        );
     }
 }

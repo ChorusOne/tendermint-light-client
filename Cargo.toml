@@ -1,7 +1,7 @@
 
 [package]
 name = "tendermint_light_client"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Parth Desai <desaiparth08@gmail.com>", "Joe Bowman <joe@chorus.one>"]
 edition = "2018"
 
@@ -16,8 +16,9 @@ chrono = { version = "0.4.11", features = ["serde"] }
 serde_derive = "1.0"
 subtle = "2.2"
 thiserror = "1.0.19"
-signatory = { version = "0.20.0", features = ["ed25519", "ecdsa", "k256"], git = "https://github.com/ChorusOne/signatory.git", tag = "v0.20.1" }
-signatory-dalek = { version = "0.20.1", git = "https://github.com/ChorusOne/signatory.git", tag = "v0.20.1" }
+k256 = { version = "0.7.2", features = ["ecdsa"] }
+elliptic-curve = "0.8.4"
+ed25519-dalek = "1.0.1"
 ripemd160 = "0.8.0"
 serde_repr = "0.1.5"
 sha2 = { version = "0.8", default-features = false }
