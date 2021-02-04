@@ -6,7 +6,6 @@ use crate::types::hash::Hash;
 #[derive(Serialize, Deserialize, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
 pub struct Header {
     /// Number of parts in this block
-    #[serde(with = "crate::serialization::from_str")]
     pub total: u64,
 
     /// Hash of the parts set header,

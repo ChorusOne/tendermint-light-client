@@ -27,7 +27,6 @@ pub struct Commit {
     pub height: Height,
 
     /// Round
-    #[serde(with = "crate::serialization::from_str")]
     pub round: u64,
 
     /// Block ID

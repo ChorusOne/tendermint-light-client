@@ -30,13 +30,13 @@ pub struct Id {
     /// way to propagate a large file over a gossip network.
     ///
     /// <https://github.com/tendermint/tendermint/wiki/Block-Structure#partset>
-    pub parts: Option<parts::Header>,
+    pub part_set_header: Option<parts::Header>,
 }
 
 impl Id {
     /// Create a new `Id` from a hash byte slice
-    pub fn new(hash: Hash, parts: Option<parts::Header>) -> Self {
-        Self { hash, parts }
+    pub fn new(hash: Hash, part_set_header: Option<parts::Header>) -> Self {
+        Self { hash, part_set_header }
     }
 
     /// Get a shortened 12-character prefix of a block ID (ala git)
