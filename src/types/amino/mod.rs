@@ -45,7 +45,7 @@ impl From<&block::id::Id> for BlockId {
         let bid_hash = bid.hash.as_bytes();
         BlockId::new(
             bid_hash.to_vec(),
-            bid.parts.as_ref().map(PartsSetHeader::from),
+            bid.part_set_header.as_ref().map(PartsSetHeader::from),
         )
     }
 }
@@ -201,7 +201,7 @@ impl TryFrom<&vote::Vote> for Vote {
             round: vote.round as i64,
             block_id: vote.block_id.as_ref().map(|block_id| BlockId {
                 hash: block_id.hash.as_bytes().to_vec(),
-                parts_header: block_id.parts.as_ref().map(PartsSetHeader::from),
+                parts_header: block_id.part_set_header.as_ref().map(PartsSetHeader::from),
             }),
             timestamp: Some(TimeMsg::from(vote.timestamp)),
             validator_address: vote.validator_address.as_bytes().to_vec(),
